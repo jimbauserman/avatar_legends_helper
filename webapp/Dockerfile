@@ -1,0 +1,17 @@
+# pull from python image
+FROM python:3.7
+
+# Flask listens to port 5000 by default
+EXPOSE 5000
+
+# Set working directory for app
+WORKDIR /webapp
+
+# Install needed packages
+COPY requirements.txt /webapp
+RUN pip install -r requirements.txt
+
+# Run app when container launches
+COPY flask_api.py /webapp
+COPY db_utils.py /webapp
+CMD python flask_api.py

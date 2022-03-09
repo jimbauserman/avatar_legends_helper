@@ -1,0 +1,26 @@
+---
+version: '2'
+services:
+  mysql:
+    image: mysql:8
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
+    environment: 
+      MYSQL_ROOT_PASSWORD: root
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./database:/docker-entrypoint-initdb.d/:ro
+
+  webapp:
+    build: ./webapp
+    stdin_open: true
+    links:
+      - mysql
+    environment:
+      MYSQL_DB_USER: root
+      MYSQL_DB_PASS: root
+      MYSQL_DB_PORT: 3306
+    ports: 
+      - "5000:5000"
+
