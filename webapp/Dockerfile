@@ -2,7 +2,7 @@
 FROM python:3.7
 
 # Flask listens to port 5000 by default
-EXPOSE 5000
+EXPOSE 5001
 
 # Set working directory for app
 WORKDIR /webapp

@@ -21,6 +21,7 @@ services:
       MYSQL_DB_USER: root
       MYSQL_DB_PASS: root
       MYSQL_DB_PORT: 3306
+      FLASK_APP: webapp/flask_api.py
     ports: 
-      - "5000:5000"
+      - "5001:5001"
 
