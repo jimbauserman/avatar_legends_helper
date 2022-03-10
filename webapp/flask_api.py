@@ -21,7 +21,7 @@ def default():
     resp = {'status': 'success', 'message': 'default response'}
     return json.dumps(resp)
 
-@app.route('/players'):
+@app.route('/players', methods = ['GET'])
 def get_player_names():
     data = query('''SELECT DISTINCT player_name FROM players;''')
     resp = {'status': 'success', 'data': data}
@@ -33,7 +33,7 @@ def create_player():
     player_name = request.args.get('name')
     player_pass = request.args.get('pass')
     player_id = md5(player_name.encode()).hexdigest()
-    query('''INSERT INTO players VALUES ('{}','{}','{}');'''.format(player_id, player_name, player_pass), output = False)
+    query('''INSERT INTO players (player_id, player_name, player_password_hash) VALUES ('{}','{}','{}');'''.format(player_id, player_name, player_pass), output = False)
     resp = {
         'status': 'success',
         'data': {
@@ -45,11 +45,11 @@ def create_player():
 @app.route('/login', methods = ['GET','POST']) # {flask_host}/login?user={player_name}&pass={password_hash}
 def login():
     ''' ZZ docstring '''
-    player_name = request.args.get('user') 
+    player_name = request.args.get('name') 
     req_pw = request.args.get('pass')
     data = query('''SELECT player_id, player_password_hash FROM players WHERE player_name = '{}';'''.format(player_name)) 
-    player_id = data['player_id']
-    player_pw = data['player_password_hash']
+    player_id = data[0]['player_id']
+    player_pw = data[0]['player_password_hash']
     if req_pw != player_pw:
         resp = {
             'status': 'failure',
@@ -72,7 +72,7 @@ def create_character():
     character_id = md5((player_id + character_name).encode())
     data = query('''SELECT MAX(CASE WHEN character_id = '{}' THEN TRUE ELSE FALSE END) as character_exists FROM characters;''')
     if data['character_exists']:
-        resp = {'status': 'failure': 'message': 'Character already exists', 'data': {}}
+        resp = {'status': 'failure', 'message': 'Character already exists', 'data': {}}
     else:
         query('''INSERT INTO characters (player_id, character_id, character_name) VALUES ('{}','{}','{}');'''.format(player_id, character_id, character_name), output = False)
         resp = {'status': 'success', 'data': {'character_id': character_id}}
