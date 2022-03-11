@@ -88,6 +88,8 @@ def create_character():
         resp = {'status': 'failure', 'message': 'Character already exists', 'data': {}}
     else:
         query('''INSERT INTO characters (player_id, character_id, character_name) VALUES ('{}','{}','{}');'''.format(player_id, character_id, character_name), output = False)
+        query('''INSERT INTO character_moves (SELECT '{}', move_id FROM moves WHERE move_type IN ('Basic','Balance','Advancement'));'''.format(character_id), output = False)
+        query('''INSERT INTO character_techniques (SELECT '{}', technique_id, 'Basic' FROM techniques WHERE technique_type = 'Basic');'''.format(character_id), output = False)
         resp = {'status': 'success', 'data': {'character_id': character_id}}
     return json.dumps(resp)
 
@@ -110,7 +112,7 @@ def update_character():
         # check k is valid character property
         if k == 'id':
             continue
-        elif k == 'character_playbook': #associating playbook also needs to associate playbook techniques
+        elif k == 'playbook':
             upd.append('''character_playbook_id = (SELECT playbook_id FROM playbooks WHERE playbook = '{}')'''.format(v))
         vals = "character_{} = '{}'".format(k, v) if isinstance(v, str) else 'character_{} = {}'.format(k, v)
         upd.append(vals)
@@ -129,6 +131,28 @@ def get_playbook():
     resp = {'status': 'success', 'data': data}
     return json.dumps(resp)
 
+@app.route('/technique', methods = ['GET'])
+def get_technique():
+    ''' docstring '''
+    t_id = request.args.get('id')
+    if not t_id:
+        data = query('''SELECT * FROM techniques;''')
+    else:
+        data = query('''SELECT * FROM techniques WHERE technique_id = '{}';'''.format(t_id))
+    resp = {'status': 'success', 'data': data}
+    return json.dumps(resp)
+
+@app.route('/move', methods = ['GET'])
+def get_move():
+    ''' docstring '''
+    m_id = request.args.get('id')
+    if not m_id:
+        data = query('''SELECT * FROM moves;''')
+    else:
+        data = query('''SELECT * FROM moves WHERE move_id = '{}';'''.format(m_id))
+    resp = {'status': 'success', 'data': data}
+    return json.dumps(resp)
+
 @app.route('/character/moves', methods = ['GET'])
 def get_character_moves():
     ''' docstring '''
@@ -137,11 +161,20 @@ def get_character_moves():
     resp = {'status': 'success', 'data': data}
     return json.dumps(resp)
 
+@app.route('/character/moves', methods = ['POST'])
+def add_character_move():
+    ''' docstring '''
+    c_id = request.args.get('id')
+    m_id = request.args.get('mid')
+    query('''INSERT INTO character_moves VALUES ('{}', '{}');'''.format(c_id, m_id), output = False)
+    resp = {'status': 'success', 'data': {}}
+    return json.dumps(resp)
+
 @app.route('/character/techniques', methods = ['GET'])
 def get_character_techniques():
     ''' docstring '''
     c_id = request.args.get('id')
-    data = query('''SELECT c.character_id, c.technique_mastery, t.* FROM character_techniques c JOIN techniques t ON c.technique_id = m.technique_id WHERE c.character_id = '{}';'''.format(c_id))
+    data = query('''SELECT c.character_id, c.technique_mastery, t.* FROM character_techniques c JOIN techniques t ON c.technique_id = t.technique_id WHERE c.character_id = '{}';'''.format(c_id))
     resp = {'status': 'success', 'data': data}
     return json.dumps(resp)
 
