@@ -99,8 +99,8 @@ CREATE TABLE players (
     player_id                       CHAR(32) NOT NULL,
     player_name                     VARCHAR(255) NOT NULL,
     player_password_hash            CHAR(32) NOT NULL,
-    player_created_at               TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    player_updated_at               TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    player_created_at               TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    player_updated_at               TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY(player_id)
 )
 ;

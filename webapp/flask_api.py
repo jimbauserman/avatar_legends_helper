@@ -89,6 +89,7 @@ def update_character():
         # check k is valid character property
         vals = "{} = '{}'".format(k, v) if isinstance(v, str) else "{} = {}".format(k, v)
         upd.append(vals)
+    upd.append('character_updated_at = CURRENT_TIMESTAMP()')
     query('''UPDATE characters SET {} WHERE character_id = '{}';'''.format(', '.join(upd), character_id), output = False)
     data = query('''SELECT * FROM characters WHERE character_id = '{}';'''.format(character_id))
     resp = {'status': 'success', 'data': data}
