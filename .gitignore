@@ -1,2 +1,3 @@
 *.DS_Store
+logs/flask.log
 database/02_avatar_data.sql

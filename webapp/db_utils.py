@@ -42,4 +42,6 @@ def query(query_text, output = True, connection = connection):
             cursor.execute(query_text)
             if output:
                 result = cursor.fetchall()
+                if len(result) == 1:
+                    result = result[0]
     return result

@@ -2,6 +2,7 @@
 
 import os
 import json
+from datetime import datetime
 from hashlib import md5
 from flask import Flask, request
 
@@ -42,14 +43,14 @@ def create_player():
     }
     return json.dumps(resp)
 
-@app.route('/login', methods = ['GET','POST']) # {flask_host}/login?user={player_name}&pass={password_hash}
+@app.route('/login', methods = ['POST']) # {flask_host}/login?name={player_name}&pass={password_hash}
 def login():
     ''' ZZ docstring '''
     player_name = request.args.get('name') 
     req_pw = request.args.get('pass')
     data = query('''SELECT player_id, player_password_hash FROM players WHERE player_name = '{}';'''.format(player_name)) 
-    player_id = data[0]['player_id']
-    player_pw = data[0]['player_password_hash']
+    player_id = data['player_id']
+    player_pw = data['player_password_hash']
     if req_pw != player_pw:
         resp = {
             'status': 'failure',
@@ -69,7 +70,7 @@ def create_character():
     ''' ZZ docstring '''
     player_id = request.args.get('user')
     character_name = request.args.get('cname')
-    character_id = md5((player_id + character_name).encode())
+    character_id = md5((player_id + character_name).encode()).hexdigest()
     data = query('''SELECT MAX(CASE WHEN character_id = '{}' THEN TRUE ELSE FALSE END) as character_exists FROM characters;''')
     if data['character_exists']:
         resp = {'status': 'failure', 'message': 'Character already exists', 'data': {}}
@@ -78,30 +79,32 @@ def create_character():
         resp = {'status': 'success', 'data': {'character_id': character_id}}
     return json.dumps(resp)
 
-@app.route('/character', methods = ['POST']) 
-def update_character():
-    ''' ZZ docstring '''
-    character_id = request.args.get('id')
-    character_data = request.args.get('data')
-    # confirm character id exists
-    upd = []
-    for k, v in character_data.keys():
-        # check k is valid character property
-        vals = "{} = '{}'".format(k, v) if isinstance(v, str) else "{} = {}".format(k, v)
-        upd.append(vals)
-    upd.append('character_updated_at = CURRENT_TIMESTAMP()')
-    query('''UPDATE characters SET {} WHERE character_id = '{}';'''.format(', '.join(upd), character_id), output = False)
-    data = query('''SELECT * FROM characters WHERE character_id = '{}';'''.format(character_id))
-    resp = {'status': 'success', 'data': data}
-    return json.dumps(resp)
-
 @app.route('/character', methods = ['GET'])
 def get_character_data():
     ''' docstring '''
     c_id = request.args.get('id')
     data = query('''SELECT * FROM characters WHERE character_id = '{}';'''.format(c_id))
+    data = {k: v.strftime('%Y-%m-%d %H:%M:%S') if isinstance(v, datetime) else v for k,v in data.items()}
     resp = {'status': 'success', 'data': data}
     return json.dumps(resp)
+
+@app.route('/character', methods = ['POST']) 
+def update_character():
+    ''' ZZ docstring '''
+    character_id = request.args.get('id')
+    # confirm character id exists
+    upd = []
+    for k, v in request.args.items():
+        # check k is valid character property
+        if k == 'id':
+            continue
+        elif k == 'character_playbook':
+            upd.append('''character_playbook_id = (SELECT playbook_id FROM playbooks WHERE playbook = '{}')'''.format(v))
+        vals = "character_{} = '{}'".format(k, v) if isinstance(v, str) else 'character_{} = {}'.format(k, v)
+        upd.append(vals)
+    upd.append('character_updated_at = CURRENT_TIMESTAMP()')
+    query('''UPDATE characters SET {} WHERE character_id = '{}';'''.format(', '.join(upd), character_id), output = False)
+    return get_character_data()
 
 @app.route('/playbook', methods = ['GET'])
 def get_playbook():
