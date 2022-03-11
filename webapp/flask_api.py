@@ -2,6 +2,9 @@
 
 import os
 import json
+import yaml
+import logging
+import logging.config
 from datetime import datetime
 from hashlib import md5
 from flask import Flask, request
@@ -9,6 +12,14 @@ from flask import Flask, request
 from db_utils import query
 
 FLASK_APP_PORT = int(os.environ['FLASK_APP_PORT'])
+
+# Configure logging
+with open('logging_conf.yml', 'r') as f:
+    logging.config.dictConfig(yaml.safe_load(f.read()))
+logger = logging.getLogger('root')
+
+logger.info('testing')
+logger.debug('testing 2')
 
 # Create Flask app instance
 app = Flask(__name__)
@@ -19,6 +30,7 @@ app = Flask(__name__)
 
 @app.route('/')
 def default():
+    logger.info('someone made a request to root')
     resp = {'status': 'success', 'message': 'default response'}
     return json.dumps(resp)
 
@@ -65,12 +77,12 @@ def login():
         }
     return json.dumps(resp)
 
-@app.route('/character/create', methods = ['POST']) 
+@app.route('/character/create', methods = ['POST']) # character creation should also associate basic moves and techniques
 def create_character():
     ''' ZZ docstring '''
     player_id = request.args.get('user')
     character_name = request.args.get('cname')
-    character_id = md5((player_id + character_name).encode()).hexdigest()
+    character_id = md5((player_id + character_name).encode()).hexdigest() 
     data = query('''SELECT MAX(CASE WHEN character_id = '{}' THEN TRUE ELSE FALSE END) as character_exists FROM characters;''')
     if data['character_exists']:
         resp = {'status': 'failure', 'message': 'Character already exists', 'data': {}}
@@ -98,7 +110,7 @@ def update_character():
         # check k is valid character property
         if k == 'id':
             continue
-        elif k == 'character_playbook':
+        elif k == 'character_playbook': #associating playbook also needs to associate playbook techniques
             upd.append('''character_playbook_id = (SELECT playbook_id FROM playbooks WHERE playbook = '{}')'''.format(v))
         vals = "character_{} = '{}'".format(k, v) if isinstance(v, str) else 'character_{} = {}'.format(k, v)
         upd.append(vals)
