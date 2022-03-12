@@ -22,8 +22,8 @@ services:
       MYSQL_DB_PASS: root
       MYSQL_DB_PORT: 3306
       FLASK_APP_PORT: 5001
-    # volumes:
-    #   - ./webapp/logs:/logs
+    volumes:
+      - ./webapp/logs:/logs
     ports: 
       - "5001:5001"
     expose:
