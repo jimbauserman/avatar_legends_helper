@@ -12,4 +12,7 @@ RUN pip install -r requirements.txt
 COPY flask_api.py /webapp
 COPY db_utils.py /webapp
 COPY logging_conf.yaml /webapp
+COPY templates /webapp/templates
+COPY static/css /webapp/static/css
+COPY static/js /webapp/static/js
 CMD python flask_api.py

@@ -7,7 +7,7 @@ import logging
 import logging.config
 from datetime import datetime
 from hashlib import md5
-from flask import Flask, request
+from flask import Flask, request, render_template
 
 from db_utils import query
 
@@ -17,25 +17,27 @@ FLASK_APP_PORT = int(os.environ['FLASK_APP_PORT'])
 with open('logging_conf.yaml', 'r') as f:
     logging.config.dictConfig(yaml.safe_load(f.read()))
 logger = logging.getLogger('root')
-logger.setLevel('DEBUG')
-logger.info('testing')
-logger.debug('testing 2')
 
 # Create Flask app instance
 app = Flask(__name__)
+logger.info('App initialized')
 
 # Functions to return responses to various requests
 
 # need helper fns to validate request structure
 
 @app.route('/')
-def default():
+def index():
+    logger.debug('Request to index')
+    return render_template('index.html')
 
-    logger.debug('Request to root')
-    resp = {'status': 'success', 'message': 'default response'}
-    return json.dumps(resp)
+@app.route('/login')
+def login():
+    logger.debug('Request to login')
+    return render_template('login.html')
 
-@app.route('/players', methods = ['GET'])
+# API functions should eventually live in their own file, and probably be class methods
+@app.route('/api/player', methods = ['GET'])
 def get_player_names():
     logger.debug('Call to get_player_names')
     data = query('''SELECT DISTINCT player_name FROM players;''')
@@ -46,7 +48,7 @@ def get_player_names():
         logger.error(f'Empty Return {data}')
     return json.dumps(resp)
 
-@app.route('/register', methods = ['POST'])
+@app.route('/api/player/create', methods = ['POST'])
 def create_player():
     ''' docstring '''
     player_name = request.args.get('name')
@@ -63,8 +65,8 @@ def create_player():
     logger.debug(f'Inserted {player_id}')
     return json.dumps(resp)
 
-@app.route('/login', methods = ['POST']) # {flask_host}/login?name={player_name}&pass={password_hash}
-def login():
+@app.route('/api/player/login', methods = ['POST']) # {flask_host}/login?name={player_name}&pass={password_hash}
+def login_player():
     ''' ZZ docstring '''
     logger.debug('Call to login')
     player_name = request.args.get('name') 
@@ -89,7 +91,7 @@ def login():
         logger.debug('Successful attempt')
     return json.dumps(resp)
 
-@app.route('/character/create', methods = ['POST']) # character creation should also associate basic moves and techniques
+@app.route('/api/character/create', methods = ['POST']) 
 def create_character():
     ''' ZZ docstring '''
     logger.debug('Call to create_character')
@@ -109,7 +111,7 @@ def create_character():
         logger.debug(f'{character_name} created')
     return json.dumps(resp)
 
-@app.route('/character', methods = ['GET'])
+@app.route('/api/character', methods = ['GET'])
 def get_character_data():
     ''' docstring '''
     logger.debug('Call to get_character_data')
@@ -120,7 +122,7 @@ def get_character_data():
     logger.debug(f'Returned {data}')
     return json.dumps(resp)
 
-@app.route('/character', methods = ['POST']) 
+@app.route('/api/character', methods = ['POST']) 
 def update_character():
     ''' ZZ docstring '''
     logger.debug('Call to update_character')
@@ -140,7 +142,7 @@ def update_character():
     logger.debug('Character updated')
     return get_character_data()
 
-@app.route('/playbook', methods = ['GET'])
+@app.route('/api/playbook', methods = ['GET'])
 def get_playbook():
     ''' docstring '''
     logger.debug('Call to get_playbook')
@@ -155,7 +157,7 @@ def get_playbook():
     logger.debug(f'Returned {data}')
     return json.dumps(resp)
 
-@app.route('/technique', methods = ['GET'])
+@app.route('/api/technique', methods = ['GET'])
 def get_technique():
     ''' docstring '''
     logger.debug('Call to get_technique')
@@ -169,7 +171,7 @@ def get_technique():
     resp = {'status': 'success', 'data': data}
     return json.dumps(resp)
 
-@app.route('/move', methods = ['GET'])
+@app.route('/api/move', methods = ['GET'])
 def get_move():
     ''' docstring '''
     logger.debug('Call to get_move')
@@ -183,7 +185,7 @@ def get_move():
     resp = {'status': 'success', 'data': data}
     return json.dumps(resp)
 
-@app.route('/character/moves', methods = ['GET'])
+@app.route('/api/character/moves', methods = ['GET'])
 def get_character_moves():
     ''' docstring '''
     logger.debug('Call to get_character_moves')
@@ -193,7 +195,7 @@ def get_character_moves():
     logger.debug(f'Returned {data}')
     return json.dumps(resp)
 
-@app.route('/character/moves', methods = ['POST'])
+@app.route('/api/character/moves', methods = ['POST'])
 def add_character_move():
     ''' docstring '''
     logger.debug('Call to add_character_move')
@@ -204,7 +206,7 @@ def add_character_move():
     logger.debug(f'Inserted {m_id} for {c_id}')
     return json.dumps(resp)
 
-@app.route('/character/techniques', methods = ['GET'])
+@app.route('/api/character/techniques', methods = ['GET'])
 def get_character_techniques():
     ''' docstring '''
     logger.debug('Call to get_character_techniques')
@@ -214,7 +216,7 @@ def get_character_techniques():
     logger.debug('Returned {data.technique_mastery} for {data.character_id}')
     return json.dumps(resp)
 
-@app.route('/character/techniques', methods = ['POST'])
+@app.route('/api/character/techniques', methods = ['POST'])
 def add_character_technique():
     ''' docstring '''
     logger.debug('Call to add_character_technique')

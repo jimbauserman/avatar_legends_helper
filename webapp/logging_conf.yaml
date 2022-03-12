@@ -19,3 +19,4 @@ handlers:
 loggers:
   root:
     handlers: [console, logfile]
+    level: DEBUG
