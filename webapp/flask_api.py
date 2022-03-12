@@ -7,7 +7,7 @@ import logging
 import logging.config
 from datetime import datetime
 from hashlib import md5
-from flask import Flask, request, render_template
+from flask import Flask, request, render_template, url_for, flash, redirect
 
 from db_utils import query
 
@@ -20,6 +20,7 @@ logger = logging.getLogger('root')
 
 # Create Flask app instance
 app = Flask(__name__)
+app.config['SECRET_KEY'] = os.environ['FLASK_SECRET_KEY']
 logger.info('App initialized')
 
 # Functions to return responses to various requests
@@ -31,9 +32,38 @@ def index():
     logger.debug('Request to index')
     return render_template('index.html')
 
-@app.route('/login')
+@app.route('/home')
+def home():
+    logger.debug('Request to home')
+    player_id = request.args.get('user')
+    if not player_id:
+        return redirect(url_for('index'))
+    player_name = query('''SELECT player_name FROM players WHERE player_id = '{}';'''.format(player_id))['player_name']
+    player_characters = query('''SELECT character_id, character_name, character_playbook FROM characters WHERE player_id = '{}';'''.format(player_id))
+    if isinstance(player_characters, dict):
+        player_characters = [player_characters]
+    return render_template('home.html', name = player_name, chars = player_characters)
+
+@app.route('/login', methods = ['GET','POST'])
 def login():
     logger.debug('Request to login')
+    if request.method == 'POST':
+        logger.debug('Login for submitted')
+        player_name = request.form['name'] 
+        logger.debug(f'for {player_name}')
+        req_pw = md5(request.form['pass'].encode()).hexdigest()
+        logger.debug(f'request password: {req_pw}')
+        data = query('''SELECT player_id, player_password_hash FROM players WHERE player_name = '{}';'''.format(player_name)) 
+        player_id = data['player_id']
+        player_pw = data['player_password_hash']
+        logger.debug(f'db password: {player_pw}')
+        if req_pw != player_pw:
+            flash('Incorrect player name or password.')
+            logger.debug('Failed attempt')
+        else:
+            logger.debug('Successful attempt')
+            return redirect(url_for('home')+'?user={}'.format(player_id))
+
     return render_template('login.html')
 
 # API functions should eventually live in their own file, and probably be class methods
@@ -90,6 +120,10 @@ def login_player():
         }
         logger.debug('Successful attempt')
     return json.dumps(resp)
+
+@app.route('/character')
+def character():
+    pass
 
 @app.route('/api/character/create', methods = ['POST']) 
 def create_character():
