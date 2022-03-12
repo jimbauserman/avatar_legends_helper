@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <h1>{% block title %} Welcome {{ name }} {% endblock %}</h1>
+    {% for char in chars %}
+        <a href="{{ url_for('character') }}/{{ char['character_id'] }}">
+            <h3>{{ char['character_name'] }} {{ char['character_playbook'] }}</h3>
+        </a>
+    {% endfor %}
+{% endblock %}
