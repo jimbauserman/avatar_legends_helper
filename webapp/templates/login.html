@@ -3,15 +3,22 @@
 {% block content %}
     <h1>{% block title %} Login or Register {% endblock %}</h1>
     <h2>Login</h2>
-    <form action="" name="login">
+    <form method = 'POST' name="login" id="login-form">
 
-      <label for="playername">Player Name</label>
-      <input type="text" name="playername" id="playername"/>
+    <div class="form-group">
+        <label for="name">Player Name</label>
+        <input type="text" name="name"
+               placeholder="player name" class="form-control"
+               value="{{ request.form['name'] }}"></input>
+    </div>
 
-      <label for="password">Password</label>
-      <input type="password" name="password" id="password"/>
-
-      <button type="submit">Login</button>
+    <div class="form-group">
+        <label for="pass">Password</label>
+        <input type="text" name="pass" id="pass" placeholder="password" class="form-control" value="{{ request.form['pass'] }}"></input>
+    </div>
+    <div class="form-group">
+        <button type="submit" class="btn btn-primary">Submit</button>
+    </div>
 
     </form>
 {% endblock %}
