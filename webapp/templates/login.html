@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <h1>{% block title %} Login or Register {% endblock %}</h1>
+    <h2>Login</h2>
+    <form action="" name="login">
+
+      <label for="playername">Player Name</label>
+      <input type="text" name="playername" id="playername"/>
+
+      <label for="password">Password</label>
+      <input type="password" name="password" id="password"/>
+
+      <button type="submit">Login</button>
+
+    </form>
+{% endblock %}
