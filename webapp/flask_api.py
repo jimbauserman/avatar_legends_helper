@@ -8,6 +8,7 @@ import logging.config
 from datetime import datetime
 from hashlib import md5
 from flask import Flask, request, render_template, url_for, flash, redirect
+from flask_login import LoginManager
 from werkzeug.exceptions import abort
 
 from db_utils import query
@@ -23,6 +24,14 @@ logger = logging.getLogger('root')
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ['FLASK_SECRET_KEY']
 logger.info('App initialized')
+
+# Initialize login manager
+login_manager = LoginManager()
+login_manager.init_app(app)
+
+@login_manager.user_loader
+def load_user(player_id):
+    return User.get(player_id)
 
 # Functions to return responses to various requests
 
