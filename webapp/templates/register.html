@@ -1,9 +1,9 @@
 {% extends 'base.html' %}
 
 {% block content %}
-    <h1>{% block title %} Login {% endblock %}</h1>
-    <h2>Login</h2>
-    <form method = 'POST' name="login" id="login-form">
+    <h1>{% block title %} Register {% endblock %}</h1>
+    <h2>Register</h2>
+    <form method = 'POST' name="register" id="register-form">
 
     <div class="form-group">
         <label for="name">Player Name</label>
@@ -11,15 +11,17 @@
                placeholder="player name" class="form-control"
                value="{{ request.form['name'] }}"></input>
     </div>
-
     <div class="form-group">
         <label for="pass">Password</label>
         <input type="text" name="pass" id="pass" placeholder="password" class="form-control" value="{{ request.form['pass'] }}"></input>
+    </div>
+    <div class="form-group">
+        <label for="pass2">Confirm Password</label>
+        <input type="text" name="pass2" id="pass2" placeholder="password" class="form-control" value="{{ request.form['pass2'] }}"></input>
     </div>
     <div class="form-group">
         <button type="submit" class="btn btn-primary">Submit</button>
     </div>
 
     </form>
-    <a href="{{ url_for('register') }}"><body>Not registered? Sign up here</body></a>
 {% endblock %}
