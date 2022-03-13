@@ -8,6 +8,7 @@ import logging.config
 from datetime import datetime
 from hashlib import md5
 from flask import Flask, request, render_template, url_for, flash, redirect
+from werkzeug.exceptions import abort
 
 from db_utils import query
 
@@ -27,22 +28,53 @@ logger.info('App initialized')
 
 # need helper fns to validate request structure
 
+def player_exists(player_id):
+    data = query('''SELECT MAX(CASE WHEN player_id = '{}' THEN TRUE ELSE FALSE END) as player_exists FROM players;'''.format(player_id))
+    return data['player_exists']
+
+def character_exists(character_id):
+    data = query('''SELECT MAX(CASE WHEN character_id = '{}' THEN TRUE ELSE FALSE END) as character_exists FROM characters;'''.format(character_id))
+    return data['character_exists']
+
 @app.route('/')
 def index():
     logger.debug('Request to index')
     return render_template('index.html')
 
-@app.route('/home')
-def home():
+@app.route('/home/<player_id>')
+def home(player_id):
     logger.debug('Request to home')
-    player_id = request.args.get('user')
-    if not player_id:
+    if not player_id or player_id == '':
         return redirect(url_for('index'))
-    player_name = query('''SELECT player_name FROM players WHERE player_id = '{}';'''.format(player_id))['player_name']
+    if not player_exists(player_id):
+        abort(404)
+    else:
+        player_name = query('''SELECT DISTINCT player_name FROM players WHERE player_id = '{}';'''.format(player_id))['player_name']
     player_characters = query('''SELECT character_id, character_name, character_playbook FROM characters WHERE player_id = '{}';'''.format(player_id))
     if isinstance(player_characters, dict):
         player_characters = [player_characters]
     return render_template('home.html', name = player_name, chars = player_characters)
+
+@app.route('/register', methods = ['GET','POST'])
+def register():
+    logger.debug('Request to register')
+    if request.method == 'POST':
+        player_name = request.form['name']
+        logger.debug(f'Call to create_player for {player_name}')
+        player_pass_raw = request.form['pass']
+        player_pass_raw2 = request.form['pass2']
+        if player_pass_raw != player_pass_raw2:
+            flash('Passwords do not match')
+        else:
+            player_id = md5(player_name.encode()).hexdigest()
+            if player_exists(player_id):
+                flash('Player name {} already exists'.format(player_name))
+            else:
+                player_pass = md5(player_pass_raw.encode()).hexdigest()
+                query('''INSERT INTO players (player_id, player_name, player_password_hash) VALUES ('{}','{}','{}');'''.format(player_id, player_name, player_pass), output = False)
+                logger.debug(f'Inserted {player_id}')
+                return redirect(url_for('home', player_id = player_id))
+    return render_template('register.html')
 
 @app.route('/login', methods = ['GET','POST'])
 def login():
@@ -62,7 +94,7 @@ def login():
             logger.debug('Failed attempt')
         else:
             logger.debug('Successful attempt')
-            return redirect(url_for('home')+'?user={}'.format(player_id))
+            return redirect(url_for('home', player_id = player_id))
 
     return render_template('login.html')
 
@@ -133,8 +165,7 @@ def create_character():
     logger.debug(f'for {player_id}')
     character_name = request.args.get('cname')
     character_id = md5((player_id + character_name).encode()).hexdigest() 
-    data = query('''SELECT MAX(CASE WHEN character_id = '{}' THEN TRUE ELSE FALSE END) as character_exists FROM characters;''')
-    if data['character_exists']:
+    if character_exists(character_id):
         resp = {'status': 'failure', 'message': 'Character already exists', 'data': {}}
         logger.debug('Duplicate character found')
     else:
