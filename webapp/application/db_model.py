@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import json
 from datetime import datetime
 from hashlib import md5
 
@@ -10,9 +11,33 @@ backgrounds = ['Military','Monastic','Outlaw','Privileged','Urban','Wilderness']
 nations = ['Water','Air','Fire','Earth']
 trainings = ['Waterbending','Airbending','Firebending','Earthbending','Weapons','Technology']
 
-# add a base class to implement get() and get_name() methods
+class DbMixIn(object):
+    ''' Base class for project database models '''
 
-class Playbook(db.Model):
+    protected_columns_ = []
+
+    @classmethod
+    def get(cls, id):
+        return cls.query.filter_by(id = id).first()
+
+    @classmethod
+    def get_name(cls, name):
+        return cls.query.filter_by(name = name).first()
+
+    def columns(self, writeable = True):
+        cols = [c.key for c in self.__table__.columns if c.key not in self.protected_columns_ and writeable == True]
+        return cols
+
+    def to_json(self):
+        d = {}
+        for col in self.columns(writeable = False):
+            d.update({col: self.__getattr__(col)})
+        return json.dumps(d)
+
+    def __init__(self, **kwargs):
+        super(DbMixIn, self).__init__(**kwargs)
+
+class Playbook(db.Model, DbMixIn):
     '''
     CREATE TABLE playbooks (
         id                     CHAR(32), 
@@ -48,13 +73,14 @@ class Playbook(db.Model):
     moment_of_balance = db.Column(db.String(1024))
     growth_question = db.Column(db.String(255))
 
-    def get(id):
-        return Playbook.query.filter_by(id = id).first()
+    protected_columns_ = ['id','name','start_creativity','start_focus','start_harmony',
+                        'start_passion','principle_1','principle_2','history_questions',
+                        'connections','moment_of_balance','growth_question']
 
-    def get_name(name):
-        return Playbook.query.filter_by(name = name).first()
+    def __init__(self, **kwargs):
+        super(Playbook, self).__init__(**kwargs)
 
-class Character(db.Model):
+class Character(db.Model, DbMixIn):
     '''
     CREATE TABLE characters (
         player_id                       CHAR(32) NOT NULL,
@@ -120,15 +146,10 @@ class Character(db.Model):
     player = db.relationship('Player', back_populates = 'characters', uselist = False)
     playbook = db.relationship('Playbook', viewonly = True, uselist = False)
 
-    def columns(self, writeable = True):
-        cols = [c.key for c in self.__table__.columns if c.key not in ['player_id','id','name'] and writeable == True]
-        return cols
+    protected_columns_ = ['player_id','id','name']
     
     def set(self, attr, value):
         self.__setattr__(attr, value)
-
-    def get(id):
-        return Character.query.filter_by(id = id).first()
 
     def get_name(player_id, name):
         return Character.query.filter_by(name = name, player_id = player_id).first()
@@ -139,7 +160,7 @@ class Character(db.Model):
         self.name = name
         self.id = md5((self.player_id + self.name).encode()).hexdigest()
 
-class Player(db.Model):
+class Player(db.Model, DbMixIn):
     '''
     CREATE TABLE players (
         id                              CHAR(32) NOT NULL,
@@ -160,11 +181,7 @@ class Player(db.Model):
 
     characters = db.relationship('Character', back_populates = 'player')
 
-    def get(id):
-        return Player.query.filter_by(id = id).first()
-
-    def get_name(name):
-        return Player.query.filter_by(name = name).first()
+    protected_columns_ = ['id','name','created_at']
 
     def __init__(self, name, password, **kwargs):
         super(Player, self).__init__(**kwargs)
