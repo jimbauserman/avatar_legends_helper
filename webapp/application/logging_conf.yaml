@@ -3,7 +3,7 @@ formatters:
   simple:
     format: '%(name)s - %(levelname)s - %(message)s'
   detailed:
-    format: '%(asctime)s %(name)-12s %(levelname)-8s %(message)s'
+    format: '%(asctime)s %(name)-8s %(levelname)-8s %(message)s'
     datefmt: '%Y-%m-%d %H:%M:%S'
 handlers:
   console:
@@ -17,6 +17,9 @@ handlers:
     formatter: detailed
     filename: /logs/flask.log
 loggers:
-  root:
+  application:
+    handlers: [console, logfile]
+    level: INFO
+  routes:
     handlers: [console, logfile]
     level: DEBUG

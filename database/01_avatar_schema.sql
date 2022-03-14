@@ -4,21 +4,21 @@ USE avatar;
 
 -- Playbooks
 CREATE TABLE playbooks (
-    playbook_id                     CHAR(32), -- creating a hash for everything to avoid url-masking raw names
-    playbook                        VARCHAR(100),
-    playbook_description            VARCHAR(1024),
-    playbook_start_creativity       SMALLINT,
-    playbook_start_focus            SMALLINT,
-    playbook_start_harmony          SMALLINT,
-    playbook_start_passion          SMALLINT,
-    playbook_principle_1            VARCHAR(30),
-    playbook_principle_2            VARCHAR(30),
-    playbook_demeanor_options       VARCHAR(255),
-    playbook_history_questions      JSON,
-    playbook_connections            JSON,
-    playbook_moment_of_balance      VARCHAR(1024),
-    playbook_growth_question        VARCHAR(255),
-    PRIMARY KEY(playbook_id)
+    id                     CHAR(32), 
+    name                   VARCHAR(100),
+    description            VARCHAR(1024),
+    start_creativity       SMALLINT,
+    start_focus            SMALLINT,
+    start_harmony          SMALLINT,
+    start_passion          SMALLINT,
+    principle_1            VARCHAR(30),
+    principle_2            VARCHAR(30),
+    demeanor_options       VARCHAR(255),
+    history_questions      VARCHAR(1024),
+    connections            VARCHAR(1024),
+    moment_of_balance      VARCHAR(1024),
+    growth_question        VARCHAR(255),
+    PRIMARY KEY(id)
 )
 ;
 
@@ -96,45 +96,46 @@ CREATE TABLE statuses (
 
 -- Players
 CREATE TABLE players (
-    player_id                       CHAR(32) NOT NULL,
-    player_name                     VARCHAR(255) NOT NULL,
-    player_password_hash            CHAR(32) NOT NULL,
-    player_created_at               TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    player_updated_at               TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY(player_id)
+    id                              CHAR(32) NOT NULL,
+    name                            VARCHAR(255) NOT NULL,
+    password_hash                   CHAR(32) NOT NULL,
+    created_at                      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at                      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY(id)
 )
 ;
 
 -- Characters 
 CREATE TABLE characters (
     player_id                       CHAR(32) NOT NULL,
-    character_id                    CHAR(32) NOT NULL,
-    character_name                  VARCHAR(255) NOT NULL,
-    character_playbook_id           CHAR(32), 
-    character_playbook              VARCHAR(30), 
-    character_training              VARCHAR(50),
-    character_fighting_style        VARCHAR(255),
-    character_background            VARCHAR(50),
-    character_hometown              VARCHAR(255),
-    character_hometown_nation       ENUM('Water','Air','Fire','Earth'),
-    character_demeanors             VARCHAR(255),
-    character_appearance            VARCHAR(1024),
-    character_history_questions     JSON,
-    character_connections           JSON,
-    character_creativity            SMALLINT,
-    character_focus                 SMALLINT,
-    character_harmony               SMALLINT,
-    character_passion               SMALLINT,
-    character_fatigue               SMALLINT DEFAULT 0, -- possibly move to secondary table to track temporary conditions
-    character_balance               SMALLINT DEFAULT 0, -- possibly move to secondary table to track temporary conditions
-    character_balance_center        SMALLINT DEFAULT 0,
-    character_growth                SMALLINT DEFAULT 0,
-    character_growth_advancements   SMALLINT DEFAULT 0,
-    character_mob_unlocked          BOOLEAN DEFAULT FALSE, -- "mob" = moment of balance
-    character_created_at            TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    character_updated_at            TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY(character_id),
-    FOREIGN KEY(player_id) REFERENCES players (player_id) ON DELETE CASCADE
+    id                              CHAR(32) NOT NULL,
+    name                            VARCHAR(255) NOT NULL,
+    playbook_id                     CHAR(32), 
+    -- playbook_name                   VARCHAR(100), 
+    training                        VARCHAR(50),
+    fighting_style                  VARCHAR(255),
+    background                      ENUM('Military','Monastic','Outlaw','Privileged','Urban','Wilderness'),
+    hometown                        VARCHAR(255),
+    hometown_nation                 ENUM('Water','Air','Fire','Earth'),
+    demeanors                       VARCHAR(255),
+    appearance                      VARCHAR(1024),
+    history_questions               VARCHAR(1024),
+    connections                     VARCHAR(1024),
+    creativity                      SMALLINT,
+    focus                           SMALLINT,
+    harmony                         SMALLINT,
+    passion                         SMALLINT,
+    fatigue                         SMALLINT DEFAULT 0, 
+    balance                         SMALLINT DEFAULT 0, 
+    balance_center                  SMALLINT DEFAULT 0,
+    growth                          SMALLINT DEFAULT 0,
+    growth_advancements             SMALLINT DEFAULT 0,
+    mob_unlocked                    BOOLEAN DEFAULT FALSE, -- "mob" = moment of balance
+    created_at                      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at                      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY(id),
+    FOREIGN KEY(player_id) REFERENCES players (id) ON DELETE CASCADE,
+    FOREIGN KEY(playbook_id) REFERENCES playbooks (id)
 )
 ;
 
@@ -142,7 +143,7 @@ CREATE TABLE characters (
 CREATE TABLE character_moves (
     character_id                    CHAR(32),
     move_id                         CHAR(32),
-    FOREIGN KEY(character_id) REFERENCES characters (character_id) ON DELETE CASCADE,
+    FOREIGN KEY(character_id) REFERENCES characters (id) ON DELETE CASCADE,
     FOREIGN KEY(move_id) REFERENCES moves (move_id) ON DELETE CASCADE
 )
 ;
@@ -151,7 +152,7 @@ CREATE TABLE character_techniques (
     character_id                    CHAR(32),
     technique_id                    CHAR(32),
     technique_mastery               ENUM('Basic','Learned','Practiced','Mastered'),
-    FOREIGN KEY(character_id) REFERENCES characters (character_id) ON DELETE CASCADE,
+    FOREIGN KEY(character_id) REFERENCES characters (id) ON DELETE CASCADE,
     FOREIGN KEY(technique_id) REFERENCES techniques (technique_id) ON DELETE CASCADE
 )
 

@@ -2,27 +2,16 @@
 
 import os
 import json
-import yaml
 import logging
-import logging.config
 from datetime import datetime
 from hashlib import md5
 from flask import Flask, request, render_template, url_for, flash, redirect
 from werkzeug.exceptions import abort
 
-from db_utils import query
+from . import app, db
+from .db_model import Player, Character, Playbook
 
-FLASK_APP_PORT = int(os.environ['FLASK_APP_PORT'])
-
-# Configure logging
-with open('logging_conf.yaml', 'r') as f:
-    logging.config.dictConfig(yaml.safe_load(f.read()))
-logger = logging.getLogger('root')
-
-# Create Flask app instance
-app = Flask(__name__)
-app.config['SECRET_KEY'] = os.environ['FLASK_SECRET_KEY']
-logger.info('App initialized')
+logger = logging.getLogger(__name__)
 
 # Functions to return responses to various requests
 
@@ -46,14 +35,16 @@ def home(player_id):
     logger.debug('Request to home')
     if not player_id or player_id == '':
         return redirect(url_for('index'))
-    if not player_exists(player_id):
-        abort(404)
-    else:
-        player_name = query('''SELECT DISTINCT player_name FROM players WHERE player_id = '{}';'''.format(player_id))['player_name']
-    player_characters = query('''SELECT character_id, character_name, character_playbook FROM characters WHERE player_id = '{}';'''.format(player_id))
-    if isinstance(player_characters, dict):
-        player_characters = [player_characters]
-    return render_template('home.html', name = player_name, chars = player_characters)
+    player = Player.query.filter_by(id = player_id).first_or_404()
+    char_data = []
+    for c in player.characters:
+        if not c.playbook: # we might want to require playbook on character creation
+            pb = ''
+        else:
+            pb = c.playbook.name
+        char_data.append({'id': c.id, 'name': c.name, 'playbook': pb})
+    # char_data = [{'name': c.name, 'playbook': c.playbook.name} for c in player.characters]
+    return render_template('home.html', name = player.name, chars = char_data)
 
 @app.route('/register', methods = ['GET','POST'])
 def register():
@@ -66,14 +57,14 @@ def register():
         if player_pass_raw != player_pass_raw2:
             flash('Passwords do not match')
         else:
-            player_id = md5(player_name.encode()).hexdigest()
-            if player_exists(player_id):
-                flash('Player name {} already exists'.format(player_name))
+            if Player.get_name(player_name):
+                flash('''Player name {} already exists. <a href="{{ url_for('login') }}">Login here.</a>'''.format(player_name)) # this doesnt work
             else:
-                player_pass = md5(player_pass_raw.encode()).hexdigest()
-                query('''INSERT INTO players (player_id, player_name, player_password_hash) VALUES ('{}','{}','{}');'''.format(player_id, player_name, player_pass), output = False)
-                logger.debug(f'Inserted {player_id}')
-                return redirect(url_for('home', player_id = player_id))
+                player = Player(player_name, player_pass_raw)
+                db.session.add(player)
+                db.session.commit()
+                logger.debug(f'Inserted {player.id}')
+                return redirect(url_for('home', player_id = player.id))
     return render_template('register.html')
 
 @app.route('/login', methods = ['GET','POST'])
@@ -85,16 +76,17 @@ def login():
         logger.debug(f'for {player_name}')
         req_pw = md5(request.form['pass'].encode()).hexdigest()
         logger.debug(f'request password: {req_pw}')
-        data = query('''SELECT player_id, player_password_hash FROM players WHERE player_name = '{}';'''.format(player_name)) 
-        player_id = data['player_id']
-        player_pw = data['player_password_hash']
-        logger.debug(f'db password: {player_pw}')
-        if req_pw != player_pw:
-            flash('Incorrect player name or password.')
-            logger.debug('Failed attempt')
+        player = Player.get_name(player_name)
+        if not player:
+            flash('''No player with that name exists. <a href="{{ url_for('register') }}">Sign up here!</a>''') # this doesnt work
         else:
-            logger.debug('Successful attempt')
-            return redirect(url_for('home', player_id = player_id))
+            logger.debug(f'db password: {player.password_hash}')
+            if req_pw != player.password_hash:
+                flash('Incorrect player name or password.')
+                logger.debug('Failed attempt')
+            else:
+                logger.debug('Successful attempt')
+                return redirect(url_for('home', player_id = player.id))
 
     return render_template('login.html')
 
@@ -162,18 +154,22 @@ def create_character():
     ''' ZZ docstring '''
     logger.debug('Call to create_character')
     player_id = request.args.get('user')
+    player = Player.get(player_id)
     logger.debug(f'for {player_id}')
     character_name = request.args.get('cname')
-    character_id = md5((player_id + character_name).encode()).hexdigest() 
-    if character_exists(character_id):
+    if Character.get_name(player.id, character_name):
         resp = {'status': 'failure', 'message': 'Character already exists', 'data': {}}
         logger.debug('Duplicate character found')
     else:
-        query('''INSERT INTO characters (player_id, character_id, character_name) VALUES ('{}','{}','{}');'''.format(player_id, character_id, character_name), output = False)
-        query('''INSERT INTO character_moves (SELECT '{}', move_id FROM moves WHERE move_type IN ('Basic','Balance','Advancement'));'''.format(character_id), output = False)
-        query('''INSERT INTO character_techniques (SELECT '{}', technique_id, 'Basic' FROM techniques WHERE technique_type = 'Basic');'''.format(character_id), output = False)
-        resp = {'status': 'success', 'data': {'character_id': character_id}}
-        logger.debug(f'{character_name} created')
+        player = Player.get(player_id)
+        character = Character(player, character_name)
+        # query('''INSERT INTO characters (player_id, character_id, character_name) VALUES ('{}','{}','{}');'''.format(player_id, character_id, character_name), output = False)
+        # query('''INSERT INTO character_moves (SELECT '{}', move_id FROM moves WHERE move_type IN ('Basic','Balance','Advancement'));'''.format(character_id), output = False)
+        # query('''INSERT INTO character_techniques (SELECT '{}', technique_id, 'Basic' FROM techniques WHERE technique_type = 'Basic');'''.format(character_id), output = False)
+        db.session.add(character)
+        db.session.commit()
+        resp = {'status': 'success', 'data': {'character_id': character.id}}
+        logger.debug(f'{character.name} created')
     return json.dumps(resp)
 
 @app.route('/api/character', methods = ['GET'])
@@ -187,25 +183,25 @@ def get_character_data():
     logger.debug(f'Returned {data}')
     return json.dumps(resp)
 
-@app.route('/api/character', methods = ['POST']) 
-def update_character():
+@app.route('/api/character/<character_id>', methods = ['POST']) 
+def update_character(character_id):
     ''' ZZ docstring '''
     logger.debug('Call to update_character')
-    character_id = request.args.get('id')
-    # confirm character id exists
-    upd = []
+    character = Character.get(character_id)
+    if not character:
+        return json.dumps({'status': 'failure', 'message': 'That character does not exist'})
     for k, v in request.args.items():
-        # check k is valid character property
-        if k == 'id':
-            continue
-        elif k == 'playbook':
-            upd.append('''character_playbook_id = (SELECT playbook_id FROM playbooks WHERE playbook = '{}')'''.format(v))
-        vals = "character_{} = '{}'".format(k, v) if isinstance(v, str) else 'character_{} = {}'.format(k, v)
-        upd.append(vals)
-    upd.append('character_updated_at = CURRENT_TIMESTAMP()')
-    query('''UPDATE characters SET {} WHERE character_id = '{}';'''.format(', '.join(upd), character_id), output = False)
+        if k == 'playbook':
+            playbook = Playbook.get_name(v)
+            character.playbook_id = playbook.id
+        elif k not in character.columns():
+            return json.dumps({'status': 'failure', 'message': 'Invalid argument: {}'.format(k)})
+        else:
+            character.set(k, v)
+    character.updated_at = datetime.utcnow()
+    db.session.commit()
     logger.debug('Character updated')
-    return get_character_data()
+    return json.dumps({'status': 'success', 'data': {'id': character.id}})
 
 @app.route('/api/playbook', methods = ['GET'])
 def get_playbook():
@@ -294,7 +290,3 @@ def add_character_technique():
     resp = {'status': 'success', 'data': {}}
     logger.debug(f'{c_id} has learned {t_id}')
     return json.dumps(resp)
-
-
-if __name__ == '__main__':
-    app.run(host = '0.0.0.0', port = FLASK_APP_PORT)

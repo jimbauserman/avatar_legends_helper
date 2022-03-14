@@ -1,3 +1,4 @@
 *.DS_Store
 webapp/logs/flask.log
+webapp/application/__pycache__/
 database/02_avatar_data.sql
