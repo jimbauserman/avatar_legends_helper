@@ -129,7 +129,7 @@ def update_character(character_id):
         if k == 'playbook':
             playbook = Playbook.get_name(v)
             character.playbook_id = playbook.id
-        elif k not in character.columns():
+        elif k not in character.mutable_columns:
             return json.dumps({'status': 'failure', 'message': 'Invalid argument: {}'.format(k)})
         else:
             character.set(k, v)
@@ -164,7 +164,7 @@ def get_techniques():
     return json.dumps(resp)  
 
 @app.route('/api/technique/<technique_id>', methods = ['GET'])
-def get_techniques(technique_id):  
+def get_technique(technique_id):  
     logger.debug('Call to get_technique {technique_id}')
     technique = Technique.get(technique_id)
     data = technique.to_dict()
@@ -198,19 +198,22 @@ def get_character_moves(character_id):
     resp = {'status': 'success', 'data': data}
     return json.dumps(resp)
 
-@app.route('/api/character/moves', methods = ['POST'])
-def add_character_move():
+@app.route('/api/character/<character_id>/moves', methods = ['POST'])
+def add_character_move(character_id):
     ''' docstring '''
     logger.debug('Call to add_character_move')
-    c_id = request.args.get('id')
-    m_id = request.args.get('mid')
-    character = Character.get(c_id)
-    move = Move.get(m_id)
-    cm = CharacterMove(character, move)
-    db.session.add(cm)
-    db.session.commit()
-    resp = {'status': 'success', 'data': {}}
-    logger.debug(f'Inserted {m_id} for {c_id}')
+    move_id = request.args.get('id')
+    cm = CharacterMove.get(character_id, move_id)
+    if not cm: 
+        character = Character.get(character_id)
+        move = Move.get(m_id)
+        cm = CharacterMove(character, move)
+        db.session.add(cm)
+        db.session.commit()
+        resp = {'status': 'success', 'data': {}}
+    else:
+        resp = {'status': 'failure', 'message': 'Move already associated with character'}
+    logger.debug(f'Inserted {move_id} for {character_id}')
     return json.dumps(resp)
 
 @app.route('/api/character/<character_id>/techniques', methods = ['GET'])
@@ -241,5 +244,5 @@ def add_character_technique(character_id):
     db.session.add(ct)
     db.session.commit()
     resp = {'status': 'success', 'data': {}}
-    logger.debug(f'{c_id} has learned {t_id}')
+    logger.debug(f'{character_id} has learned {technique_id}')
     return json.dumps(resp)

@@ -175,6 +175,7 @@ class Technique(db.Model, DbMixIn):
     # want technique to also return its mastery level when queried as part of Character.techniques
     # https://docs.sqlalchemy.org/en/14/orm/extensions/associationproxy.html#sqlalchemy.ext.associationproxy.association_proxy
     # when trying to reference below attribute as 'mastery' or 'technique_mastery' get KeyError
+    # https://stackoverflow.com/questions/7417906/sqlalchemy-manytomany-secondary-table-with-additional-fields
     # mastery = association_proxy('technique_mastery', 'character_mastery')
 
     protected_columns_ = ['id','name','technique_type','approach','req_training','req_playbook',
@@ -311,6 +312,9 @@ class CharacterMove(db.Model):
     character_id = db.Column(db.String(32), db.ForeignKey('characters.id'), primary_key = True, nullable = False)
     move_id = db.Column(db.String(32), db.ForeignKey('moves.id'), primary_key = True, nullable = False)
 
+    def get(character_id, move_id):
+        return CharacterMove.query.filter_by(character_id = character_id, move_id = move_id).first()
+
     def __init__(self, character, move, **kwargs):
         super(CharacterMove, self).__init__(**kwargs)
         self.character_id = character.id 
@@ -334,7 +338,7 @@ class CharacterTechnique(db.Model):
 
     # character_mastery = db.relationship('Technique', backref = db.backref('technique_mastery'))
 
-    def get(self, character_id, technique_id):
+    def get(character_id, technique_id):
         return CharacterTechnique.query.filter_by(character_id = character_id, technique_id = technique_id).first()
 
     def __init__(self, character, technique, mastery = None, **kwargs):
