@@ -12,8 +12,6 @@ from .db_model import Player, Character, Playbook, Move, CharacterMove, Techniqu
 
 logger = logging.getLogger('routes')
 
-# Functions to return responses to various requests
-
 # need helper fns to validate request structure
 
 @app.route('/')
@@ -81,61 +79,6 @@ def login():
 
     return render_template('login.html')
 
-# API functions should eventually live in their own file, and probably be class methods
-@app.route('/api/player', methods = ['GET'])
-def get_player_names():
-    logger.debug('Call to get_player_names')
-    data = query('''SELECT DISTINCT player_name FROM players;''')
-    resp = {'status': 'success', 'data': data}
-    if data:
-        logger.debug(f'Returned {data}')
-    else:
-        logger.error(f'Empty Return {data}')
-    return json.dumps(resp)
-
-@app.route('/api/player/create', methods = ['POST'])
-def create_player():
-    ''' docstring '''
-    player_name = request.args.get('name')
-    logger.debug(f'Call to create_player for {player_name}')
-    player_pass = request.args.get('pass')
-    player_id = md5(player_name.encode()).hexdigest()
-    query('''INSERT INTO players (player_id, player_name, player_password_hash) VALUES ('{}','{}','{}');'''.format(player_id, player_name, player_pass), output = False)
-    resp = {
-        'status': 'success',
-        'data': {
-            'player_id': player_id
-        }
-    }
-    logger.debug(f'Inserted {player_id}')
-    return json.dumps(resp)
-
-@app.route('/api/player/login', methods = ['POST']) # {flask_host}/login?name={player_name}&pass={password_hash}
-def login_player():
-    ''' ZZ docstring '''
-    logger.debug('Call to login')
-    player_name = request.args.get('name') 
-    logger.debug(f'for {player_name}')
-    req_pw = request.args.get('pass')
-    data = query('''SELECT player_id, player_password_hash FROM players WHERE player_name = '{}';'''.format(player_name)) 
-    player_id = data['player_id']
-    player_pw = data['player_password_hash']
-    if req_pw != player_pw:
-        resp = {
-            'status': 'failure',
-            'message': 'Incorrect player name or password.',
-            'data': {}
-        }
-        logger.debug('Failed attempt')
-    else:
-        resp = {
-            'status': 'success',
-            'message': 'Logged in as {}.'.format(player_name),
-            'data': {'player_id': player_id}
-        }
-        logger.debug('Successful attempt')
-    return json.dumps(resp)
-
 @app.route('/character')
 def character():
     pass
@@ -166,13 +109,11 @@ def create_character():
         logger.debug(f'{character.name} created')
     return json.dumps(resp)
 
-@app.route('/api/character', methods = ['GET'])
-def get_character_data():
+@app.route('/api/character/<character_id>', methods = ['GET'])
+def get_character(character_id):
     ''' docstring '''
-    logger.debug('Call to get_character_data')
-    c_id = request.args.get('id')
-    data = query('''SELECT * FROM characters WHERE character_id = '{}';'''.format(c_id))
-    data = {k: v.strftime('%Y-%m-%d %H:%M:%S') if isinstance(v, datetime) else v for k,v in data.items()}
+    logger.debug('Call to get_character for {character_id}')
+    data = Character.get(character_id).to_dict()
     resp = {'status': 'success', 'data': data}
     logger.debug(f'Returned {data}')
     return json.dumps(resp)
@@ -180,7 +121,7 @@ def get_character_data():
 @app.route('/api/character/<character_id>', methods = ['POST']) 
 def update_character(character_id):
     ''' ZZ docstring '''
-    logger.debug('Call to update_character')
+    logger.debug('Call to update_character for {character_id}')
     character = Character.get(character_id)
     if not character:
         return json.dumps({'status': 'failure', 'message': 'That character does not exist'})
@@ -194,48 +135,57 @@ def update_character(character_id):
             character.set(k, v)
     db.session.commit()
     logger.debug('Character updated')
-    return json.dumps({'status': 'success', 'data': {'id': character.id}})
+    return get_character(character_id)
 
 @app.route('/api/playbook', methods = ['GET'])
-def get_playbook():
+def get_playbooks():
+    logger.debug('Call to get_playbooks')
+    playbooks = Playbook.get_all()
+    data = [p.to_dict() for p in playbooks]
+    resp = {'status': 'success', 'data': data}
+    return json.dumps(resp)
+
+@app.route('/api/playbook/<playbook_id>', methods = ['GET'])
+def get_playbook(playbook_id):
     ''' docstring '''
     logger.debug('Call to get_playbook')
-    p_id = request.args.get('id')
-    if not p_id:
-        data = query('''SELECT * FROM playbooks;''')
-        logger.debug('Returned all')
-    else:
-        data = query('''SELECT * FROM playbooks WHERE playbook_id = '{}';'''.format(p_id))
-        logger.debug(f'Returned {p_id}')
+    playbook = Playbook.get(playbook_id)
+    data = playbook.to_dict()
     resp = {'status': 'success', 'data': data}
-    logger.debug(f'Returned {data}')
     return json.dumps(resp)
 
 @app.route('/api/technique', methods = ['GET'])
-def get_technique():
+def get_techniques():
     ''' docstring '''
-    logger.debug('Call to get_technique')
-    t_id = request.args.get('id')
-    if not t_id:
-        data = query('''SELECT * FROM techniques;''')
-        logger.debug('Returned all')
-    else:
-        data = query('''SELECT * FROM techniques WHERE technique_id = '{}';'''.format(t_id))
-        logger.debug(f'Returned {t_id}')
+    logger.debug('Call to get_techniques')
+    techniques = Technique.get_all()
+    data = [t.to_dict() for t in techniques]
+    resp = {'status': 'success', 'data': data}
+    return json.dumps(resp)  
+
+@app.route('/api/technique/<technique_id>', methods = ['GET'])
+def get_techniques(technique_id):  
+    logger.debug('Call to get_technique {technique_id}')
+    technique = Technique.get(technique_id)
+    data = technique.to_dict()
     resp = {'status': 'success', 'data': data}
     return json.dumps(resp)
 
 @app.route('/api/move', methods = ['GET'])
-def get_move():
+def get_moves():
     ''' docstring '''
-    logger.debug('Call to get_move')
-    m_id = request.args.get('id')
-    if not m_id:
-        data = query('''SELECT * FROM moves;''')
-        logger.debug('Returned all')
-    else:
-        data = query('''SELECT * FROM moves WHERE move_id = '{}';'''.format(m_id))
-        logger.debug(f'Returned {m_id}')
+    logger.debug('Call to get_moves')
+    moves = Move.get_all()
+    data = [m.to_dict() for m in moves]
+    resp = {'status': 'success', 'data': data}
+    return json.dumps(resp)
+
+@app.route('/api/move/<move_id>', methods = ['GET'])
+def get_move(move_id):
+    ''' docstring '''
+    logger.debug('Call to get_move {move_id}')
+    move = Move.get(move_id)
+    data = move.to_dict()
     resp = {'status': 'success', 'data': data}
     return json.dumps(resp)
 
@@ -254,7 +204,11 @@ def add_character_move():
     logger.debug('Call to add_character_move')
     c_id = request.args.get('id')
     m_id = request.args.get('mid')
-    query('''INSERT INTO character_moves VALUES ('{}', '{}');'''.format(c_id, m_id), output = False)
+    character = Character.get(c_id)
+    move = Move.get(m_id)
+    cm = CharacterMove(character, move)
+    db.session.add(cm)
+    db.session.commit()
     resp = {'status': 'success', 'data': {}}
     logger.debug(f'Inserted {m_id} for {c_id}')
     return json.dumps(resp)
@@ -268,16 +222,24 @@ def get_character_techniques(character_id):
     resp = {'status': 'success', 'data': data}
     return json.dumps(resp)
 
-@app.route('/api/character/techniques', methods = ['POST'])
-def add_character_technique():
+@app.route('/api/character/<character_id>/techniques', methods = ['POST'])
+def add_character_technique(character_id):
     ''' docstring '''
     logger.debug('Call to add_character_technique')
-    c_id = request.args.get('id')
-    t_id = request.args.get('tid')
+    technique_id = request.args.get('id')
     mastery = request.args.get('mastery')
     if not mastery:
         mastery = 'Learned'
-    query('''INSERT INTO character_techniques VALUES ('{}', '{}', '{}');'''.format(c_id, t_id, mastery), output = False)
+    ct = CharacterTechnique.get(character_id, technique_id)
+    if not ct:
+        character = Character.get(character_id)
+        technique = Technique.get(t_id)
+        ct = CharacterTechnique(character, technique)
+    else:
+        # enforce Learned -> Practiced -> Mastered?
+        ct.mastery = mastery
+    db.session.add(ct)
+    db.session.commit()
     resp = {'status': 'success', 'data': {}}
     logger.debug(f'{c_id} has learned {t_id}')
     return json.dumps(resp)

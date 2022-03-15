@@ -35,12 +35,23 @@ class DbMixIn(object):
     def get_name(cls, name): # might want to construct an index on name fields if this is used a lot
         return cls.query.filter_by(name = name).first()
 
-    def columns(self, writeable = True):
-        cols = [c.key for c in self.__table__.columns if c.key not in self.protected_columns_ or writeable == False]
+    @classmethod
+    def get_all(cls):
+        return cls.query.all()
+
+    @property
+    def columns(self):
+        cols = [c.key for c in self.__table__.columns]
         return cols
 
-    def to_dict(self, extra_attrs = []):
-        return {col: self.__dict__[col] for col in self.columns(writeable = False) + extra_attrs}
+    @property
+    def mutable_columns(self):
+        cols = [c.key for c in self.__table__.columns if c.key not in self.protected_columns_]
+        return cols
+
+    def to_dict(self): # , extra_attrs = []
+        conv_ts = lambda v: v.strftime('%Y-%m-%d %H:%M:%S') if isinstance(v, datetime) else v
+        return {k: conv_ts(v) for k,v in self.__dict__.items() if k in self.columns}
 
     def __init__(self, **kwargs):
         super(DbMixIn, self).__init__(**kwargs)
@@ -183,7 +194,6 @@ class Character(db.Model, DbMixIn):
         id                              CHAR(32) NOT NULL,
         name                            VARCHAR(255) NOT NULL,
         playbook_id                     CHAR(32), 
-        playbook_name                   VARCHAR(100), 
         training                        VARCHAR(50),
         fighting_style                  VARCHAR(255),
         background                      VARCHAR(50),
@@ -323,6 +333,9 @@ class CharacterTechnique(db.Model):
     mastery = db.Column(db.Enum(*['Basic','Learned','Practiced','Mastered']))
 
     # character_mastery = db.relationship('Technique', backref = db.backref('technique_mastery'))
+
+    def get(self, character_id, technique_id):
+        return CharacterTechnique.query.filter_by(character_id = character_id, technique_id = technique_id).first()
 
     def __init__(self, character, technique, mastery = None, **kwargs):
         super(CharacterTechnique, self).__init__(**kwargs)
