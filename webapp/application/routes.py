@@ -6,24 +6,15 @@ import logging
 from datetime import datetime
 from hashlib import md5
 from flask import Flask, request, render_template, url_for, flash, redirect
-from werkzeug.exceptions import abort
 
 from . import app, db
-from .db_model import Player, Character, Playbook
+from .db_model import Player, Character, Playbook, Move, CharacterMove, Technique, CharacterTechnique
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('routes')
 
 # Functions to return responses to various requests
 
 # need helper fns to validate request structure
-
-def player_exists(player_id):
-    data = query('''SELECT MAX(CASE WHEN player_id = '{}' THEN TRUE ELSE FALSE END) as player_exists FROM players;'''.format(player_id))
-    return data['player_exists']
-
-def character_exists(character_id):
-    data = query('''SELECT MAX(CASE WHEN character_id = '{}' THEN TRUE ELSE FALSE END) as character_exists FROM characters;'''.format(character_id))
-    return data['character_exists']
 
 @app.route('/')
 def index():
@@ -35,7 +26,7 @@ def home(player_id):
     logger.debug('Request to home')
     if not player_id or player_id == '':
         return redirect(url_for('index'))
-    player = Player.query.filter_by(id = player_id).first_or_404()
+    player = Player.get_or_404(player_id)
     char_data = []
     for c in player.characters:
         if not c.playbook: # we might want to require playbook on character creation
@@ -163,10 +154,13 @@ def create_character():
     else:
         player = Player.get(player_id)
         character = Character(player, character_name)
-        # query('''INSERT INTO characters (player_id, character_id, character_name) VALUES ('{}','{}','{}');'''.format(player_id, character_id, character_name), output = False)
-        # query('''INSERT INTO character_moves (SELECT '{}', move_id FROM moves WHERE move_type IN ('Basic','Balance','Advancement'));'''.format(character_id), output = False)
-        # query('''INSERT INTO character_techniques (SELECT '{}', technique_id, 'Basic' FROM techniques WHERE technique_type = 'Basic');'''.format(character_id), output = False)
         db.session.add(character)
+        for move in Move.starting_moves():
+            cm = CharacterMove(character, move)
+            db.session.add(cm)
+        for technique in Technique.starting_techniques():
+            ct = CharacterTechnique(character, technique)
+            db.session.add(ct)
         db.session.commit()
         resp = {'status': 'success', 'data': {'character_id': character.id}}
         logger.debug(f'{character.name} created')
@@ -198,7 +192,6 @@ def update_character(character_id):
             return json.dumps({'status': 'failure', 'message': 'Invalid argument: {}'.format(k)})
         else:
             character.set(k, v)
-    character.updated_at = datetime.utcnow()
     db.session.commit()
     logger.debug('Character updated')
     return json.dumps({'status': 'success', 'data': {'id': character.id}})
@@ -246,14 +239,13 @@ def get_move():
     resp = {'status': 'success', 'data': data}
     return json.dumps(resp)
 
-@app.route('/api/character/moves', methods = ['GET'])
-def get_character_moves():
+@app.route('/api/character/<character_id>/moves', methods = ['GET'])
+def get_character_moves(character_id):
     ''' docstring '''
     logger.debug('Call to get_character_moves')
-    c_id = request.args.get('id')
-    data = query('''SELECT c.character_id, m.* FROM character_moves c JOIN moves m ON c.move_id = m.move_id WHERE c.character_id = '{}';'''.format(c_id))
+    character = Character.get(character_id)
+    data = [m.to_dict() for m in character.moves]
     resp = {'status': 'success', 'data': data}
-    logger.debug(f'Returned {data}')
     return json.dumps(resp)
 
 @app.route('/api/character/moves', methods = ['POST'])
@@ -267,14 +259,13 @@ def add_character_move():
     logger.debug(f'Inserted {m_id} for {c_id}')
     return json.dumps(resp)
 
-@app.route('/api/character/techniques', methods = ['GET'])
-def get_character_techniques():
+@app.route('/api/character/<character_id>/techniques', methods = ['GET'])
+def get_character_techniques(character_id):
     ''' docstring '''
     logger.debug('Call to get_character_techniques')
-    c_id = request.args.get('id')
-    data = query('''SELECT c.character_id, c.technique_mastery, t.* FROM character_techniques c JOIN techniques t ON c.technique_id = t.technique_id WHERE c.character_id = '{}';'''.format(c_id))
+    character = Character.get(character_id)
+    data = [t.to_dict() for t in character.techniques]
     resp = {'status': 'success', 'data': data}
-    logger.debug('Returned {data.technique_mastery} for {data.character_id}')
     return json.dumps(resp)
 
 @app.route('/api/character/techniques', methods = ['POST'])

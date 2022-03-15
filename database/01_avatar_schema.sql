@@ -40,36 +40,36 @@ CREATE TABLE approaches (
 
 -- Moves
 CREATE TABLE moves ( -- need to redo this. does not fit balance moves
-    move_id                         CHAR(32),
-    move                            VARCHAR(100),
+    id                              CHAR(32),
+    name                            VARCHAR(100),
     move_type                       ENUM('Basic','Balance','Playbook','Advancement','Custom'),
-    move_playbook                   VARCHAR(100),
-    move_statistic                  ENUM('Creativity','Focus','Harmony','Passion'),
-    move_description                VARCHAR(1024),
-    move_miss_outcome               VARCHAR(255),
-    move_weak_hit_outcome           VARCHAR(255),
-    move_strong_hit_outcome         VARCHAR(255),
-    PRIMARY KEY(move_id)
+    playbook                        VARCHAR(100),
+    statistic                       ENUM('Creativity','Focus','Harmony','Passion'),
+    description                     VARCHAR(1024),
+    miss_outcome                    VARCHAR(255),
+    weak_hit_outcome                VARCHAR(255),
+    strong_hit_outcome              VARCHAR(255),
+    PRIMARY KEY(id)
 )
 ;
 
 -- Techniques
 CREATE TABLE techniques (
-    technique_id                    CHAR(32),
-    technique                       VARCHAR(100),
+    id                              CHAR(32),
+    name                            VARCHAR(100),
     technique_type                  ENUM('Basic','Advanced'),
-    technique_approach              ENUM('Defend and Maneuver','Advance and Attack','Evade and Observe'),
-    technique_req_training          ENUM('Universal','Waterbending','Airbending','Firebending','Earthbending','Weapons','Technology'),
-    technique_req_playbook          VARCHAR(100),
-    technique_description           VARCHAR(1024),
-    technique_cost                  JSON,
-    technique_fatigue_cleared       SMALLINT,
-    technique_conditions_cleared    VARCHAR(100),
-    technique_fatigue_inflicted     SMALLINT,
-    technique_conditions_inflicted  VARCHAR(100), -- add statuses cleared and inflicted
-    technique_is_blockable          BOOLEAN,
-    technique_is_rare               BOOLEAN,
-    PRIMARY KEY(technique_id)
+    approach                        ENUM('Defend and Maneuver','Advance and Attack','Evade and Observe'),
+    req_training                    ENUM('Universal','Waterbending','Airbending','Firebending','Earthbending','Weapons','Technology'),
+    req_playbook                    VARCHAR(100),
+    description                     VARCHAR(1024),
+    cost                            VARCHAR(100),
+    fatigue_cleared                 SMALLINT,
+    conditions_cleared              VARCHAR(100),
+    fatigue_inflicted               SMALLINT,
+    conditions_inflicted            VARCHAR(100), -- add statuses cleared and inflicted
+    is_blockable                    BOOLEAN,
+    is_rare                         BOOLEAN,
+    PRIMARY KEY(id)
 )
 ;
 
@@ -141,21 +141,20 @@ CREATE TABLE characters (
 
 -- Character Moves
 CREATE TABLE character_moves (
-    character_id                    CHAR(32),
-    move_id                         CHAR(32),
+    character_id                    CHAR(32) NOT NULL,
+    move_id                         CHAR(32) NOT NULL,
     FOREIGN KEY(character_id) REFERENCES characters (id) ON DELETE CASCADE,
-    FOREIGN KEY(move_id) REFERENCES moves (move_id) ON DELETE CASCADE
+    FOREIGN KEY(move_id) REFERENCES moves (id) ON DELETE CASCADE
 )
 ;
 
 CREATE TABLE character_techniques (
     character_id                    CHAR(32),
     technique_id                    CHAR(32),
-    technique_mastery               ENUM('Basic','Learned','Practiced','Mastered'),
+    mastery                         ENUM('Basic','Learned','Practiced','Mastered'),
     FOREIGN KEY(character_id) REFERENCES characters (id) ON DELETE CASCADE,
-    FOREIGN KEY(technique_id) REFERENCES techniques (technique_id) ON DELETE CASCADE
+    FOREIGN KEY(technique_id) REFERENCES techniques (id) ON DELETE CASCADE
 )
-
 ;
 
 -- Character Conditions
