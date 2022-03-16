@@ -4,20 +4,20 @@ USE avatar;
 
 -- Playbooks
 CREATE TABLE playbooks (
-    id                     CHAR(32), 
-    name                   VARCHAR(100),
-    description            VARCHAR(1024),
-    start_creativity       SMALLINT,
-    start_focus            SMALLINT,
-    start_harmony          SMALLINT,
-    start_passion          SMALLINT,
-    principle_1            VARCHAR(30),
-    principle_2            VARCHAR(30),
-    demeanor_options       VARCHAR(255),
-    history_questions      VARCHAR(1024),
-    connections            VARCHAR(1024),
-    moment_of_balance      VARCHAR(1024),
-    growth_question        VARCHAR(255),
+    id                      CHAR(32), 
+    name                    VARCHAR(100),
+    description             VARCHAR(1024),
+    creativity              SMALLINT,
+    focus                   SMALLINT,
+    harmony                 SMALLINT,
+    passion                 SMALLINT,
+    principle_1             VARCHAR(30),
+    principle_2             VARCHAR(30),
+    demeanor_options        VARCHAR(255),
+    history_questions       VARCHAR(1024),
+    connections             VARCHAR(1024),
+    moment_of_balance       VARCHAR(1024),
+    growth_question         VARCHAR(255),
     PRIMARY KEY(id)
 )
 ;

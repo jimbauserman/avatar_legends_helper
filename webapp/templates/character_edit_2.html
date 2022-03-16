@@ -1,0 +1,36 @@
+{% extends 'character_edit.html' %}
+
+{% block title %} Edit {{ character.name }} {% endblock %}
+
+{% block form_fields %} 
+
+    <div class="form-group">
+        <label for="background">Select your character's background</label>
+        {% for bkgrnd in data['backgrounds'] %}
+        <label for="{{ bkgrnd }}">{{ bkgrnd }}</label>
+        <input type="radio" name="background" id="{{ bkgrnd }}" 
+               class="form-control"
+               value="{{ bkgrnd }}"></input>
+        {% endfor %}
+    </div>
+
+    <div class="form-group">
+        <label for="hometown">Where is your character from?</label>
+        <input type="text" name="hometown" id="hometown" 
+               class="form-control" value="{{ request.form['hometown'] }}"></input>
+    </div>
+
+    <div class="form-group">
+        {% for nation in data['nations'] %}
+        <label for="{{ nation }}">{{ nation }} Nation</label>
+        <input type="radio" name="nation" id="{{ nation }}" 
+               class="form-control"
+               value="{{ nation }}"></input>
+        {% endfor %}
+    </div>
+
+    <div class="form-group">
+        <button type="submit" class="btn btn-primary">Continue</button>
+    </div>
+
+{% endblock %}

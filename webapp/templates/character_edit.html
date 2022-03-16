@@ -1,0 +1,8 @@
+{% extends 'base.html' %}
+
+<h1>{% block title %} {% endblock %}</h1>
+{% block content %}
+    <form method = 'POST' name="edit" id="create-character">
+    {% block form_fields %} {% endblock %}
+    </form>
+{% endblock %}

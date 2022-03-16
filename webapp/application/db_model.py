@@ -18,6 +18,9 @@ move_types = ['Basic','Balance','Playbook','Advancement','Custom']
 statistics = ['Creativity','Focus','Harmony','Passion']
 approaches = ['Defend and Maneuver','Advance and Attack','Evade and Observe']
 
+def stat_str(s):
+    return str(s) if s <= 0 else '+'+str(s)
+
 class DbMixIn(object):
     ''' Base class for project database models '''
 
@@ -80,10 +83,10 @@ class Playbook(db.Model, DbMixIn):
     __tablename__ = 'playbooks'
     id = db.Column(db.String(32), primary_key = True, nullable = False)
     name = db.Column(db.String(100), nullable = False)
-    start_creativity = db.Column(db.SmallInteger)
-    start_focus = db.Column(db.SmallInteger)
-    start_harmony = db.Column(db.SmallInteger)
-    start_passion = db.Column(db.SmallInteger)
+    creativity = db.Column(db.SmallInteger)
+    focus = db.Column(db.SmallInteger)
+    harmony = db.Column(db.SmallInteger)
+    passion = db.Column(db.SmallInteger)
     principle_1 = db.Column(db.String(30))
     principle_2 = db.Column(db.String(30))
     demeanor_options = db.Column(db.String(255))
@@ -92,9 +95,23 @@ class Playbook(db.Model, DbMixIn):
     moment_of_balance = db.Column(db.String(1024))
     growth_question = db.Column(db.String(255))
 
-    protected_columns_ = ['id','name','start_creativity','start_focus','start_harmony',
-                        'start_passion','principle_1','principle_2','history_questions',
+    protected_columns_ = ['id','name','creativity','focus','harmony',
+                        'passion','principle_1','principle_2','history_questions',
                         'connections','moment_of_balance','growth_question']
+
+    @property
+    def stats(self):
+        s = {
+            'Creativity': self.creativity,
+            'Focus': self.focus,
+            'Harmony': self.harmony,
+            'Passion': self.passion
+        }
+        return s
+
+    @property
+    def str_stats(self):
+        return {k: stat_str(v) for k, v in self.stats.items()}
 
     def __init__(self, **kwargs):
         super(Playbook, self).__init__(**kwargs)
@@ -227,7 +244,6 @@ class Character(db.Model, DbMixIn):
     id = db.Column(db.String(32), primary_key = True, nullable = False)
     name = db.Column(db.String(255), nullable = False)
     playbook_id = db.Column(db.String(32), db.ForeignKey('playbooks.id')) # eventually needs to support characters changing playbooks
-    # playbook_name = db.relationship('Playbook', backref = db.backref('name', lazy = True))
     training = db.Column(db.String(50)) # will eventually need to ref training table
     fighting_style = db.Column(db.String(255))
     background = db.Column(db.Enum(*backgrounds))
@@ -256,6 +272,20 @@ class Character(db.Model, DbMixIn):
     techniques = db.relationship('Technique', secondary = lambda: CharacterTechnique.__table__, viewonly = True)
 
     protected_columns_ = ['player_id','id','name']
+
+    @property
+    def stats(self):
+        s = {
+            'Creativity': self.creativity,
+            'Focus': self.focus,
+            'Harmony': self.harmony,
+            'Passion': self.passion
+        }
+        return s
+
+    @property
+    def str_stats(self):
+        return {k: stat_str(v) for k, v in self.stats.items()}
     
     def set(self, attr, value):
         self.__setattr__(attr, value)

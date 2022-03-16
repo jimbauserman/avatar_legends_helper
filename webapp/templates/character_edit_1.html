@@ -1,0 +1,37 @@
+{% extends 'character_edit.html' %}
+
+{% block title %} Edit {{ character.name }} {% endblock %}
+
+{% block form_fields %} 
+
+    <div class="form-group">
+        <label for="stat">Choose one statistic to increase by +1</label>
+        {% for stat in data['statistics'] %}
+        <label for="{{ stat }}">{{ stat }} {{ character.playbook.str_stats[stat] }}</label>
+        <input type="radio" name="stat" id="{{ stat }}" 
+               class="form-control"
+               value="{{ stat }}"></input>
+        {% endfor %}
+    </div>
+
+    <div class="form-group">
+        <label for="training">Choose your character's training</label>
+        {% for training in data['trainings'] %}
+        <label for="{{ training }}">{{ training }}</label>
+        <input type="radio" name="training" id="{{ training }}" 
+               class="form-control"
+               value="{{ training }}"></input>
+        {% endfor %}
+    </div>
+
+    <div class="form-group">
+        <label for="fighting_style">Describe your character's fighting style</label>
+        <input type="text-area" name="fighting_style" id="fighting_style" 
+               class="form-control" value="{{ request.form['fighting_style'] }}"></input>
+    </div>
+
+    <div class="form-group">
+        <button type="submit" class="btn btn-primary">Continue</button>
+    </div>
+
+{% endblock %}
