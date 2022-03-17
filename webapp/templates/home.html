@@ -7,5 +7,5 @@
             <h2>{{ character.name }} {% if character.playbook %}{{ character.playbook.name }}{% endif %}</h2>
         </a>
     {% endfor %}
-    <a href="{{ url_for('create_character') }}?user={{ player.id }}">Create a character </a>
+    <a href="{{ url_for('create_character') }}">Create a character </a>
 {% endblock %}

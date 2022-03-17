@@ -5,29 +5,39 @@ import json
 import logging
 from datetime import datetime
 from hashlib import md5
-from flask import Flask, request, render_template, url_for, flash, redirect
+from flask import request, render_template, url_for, flash, redirect, abort
+from flask_login import current_user, login_user, login_required
+from is_safe_url import is_safe_url
 
-from . import app, db
+from . import app, db, login_manager
 from .db_model import *
+
+FLASK_APP_HOST = os.environ['FLASK_APP_HOST']
 
 logger = logging.getLogger('routes')
 
 # need helper fns to validate request structure
 
+# configure login 
+@login_manager.user_loader
+def load_user(id):
+    return Player.get(id)
+login_manager.login_view = 'login'
+
 @app.route('/')
-@app.route('/home')
 def index():
     logger.debug('Request to index')
     return render_template('index.html')
 
-@app.route('/home/<player_id>')
-def home(player_id):
+@app.route('/home')
+@login_required
+def home():
     logger.debug('Request to home')
-    player = Player.get_or_404(player_id)
-    return render_template('home.html', player = player)
+    return render_template('home.html', player = current_user)
 
 @app.route('/register', methods = ['GET','POST'])
 def register():
+    # try https://flask.palletsprojects.com/en/2.0.x/patterns/wtforms/
     logger.debug('Request to register')
     if request.method == 'POST':
         player_name = request.form['name']
@@ -44,7 +54,8 @@ def register():
                 db.session.add(player)
                 db.session.commit()
                 logger.debug(f'Inserted {player.id}')
-                return redirect(url_for('home', player_id = player.id))
+                login_user(player)
+                return redirect(url_for('home'))
     return render_template('register.html')
 
 @app.route('/login', methods = ['GET','POST'])
@@ -55,18 +66,21 @@ def login():
         player_name = request.form['name'] 
         logger.debug(f'for {player_name}')
         req_pw = md5(request.form['pass'].encode()).hexdigest()
-        logger.debug(f'request password: {req_pw}')
         player = Player.get_name(player_name)
         if not player:
             flash('''No player with that name exists. <a href="{{ url_for('register') }}">Sign up here!</a>''') # this doesnt work
         else:
-            logger.debug(f'db password: {player.password_hash}')
             if req_pw != player.password_hash:
                 flash('Incorrect player name or password.')
                 logger.debug('Failed attempt')
             else:
                 logger.debug('Successful attempt')
-                return redirect(url_for('home', player_id = player.id))
+                login_user(player)
+                # handle if user was redirected to login
+                next = request.args.get('next')
+                if next and not is_safe_url(next, {FLASK_APP_HOST}):
+                    return abort(400)
+                return redirect(next or url_for('home'))
 
     return render_template('login.html')
 
@@ -75,11 +89,11 @@ def character():
     pass
 
 @app.route('/character/create', methods = ['GET','POST'])
+@login_required
 def create_character():
     ''' ZZ docstring '''
     logger.debug('Call to create_character')
-    player_id = request.args.get('user')
-    player = Player.get(player_id)
+    player = current_user
     playbooks = Playbook.get_all()
     if request.method == 'POST':
         character_name = request.form['name']
@@ -102,6 +116,7 @@ def create_character():
     return render_template('character_create.html', playbooks = playbooks)
 
 @app.route('/character/<character_id>/edit/<int:step>', methods = ['GET','POST']) 
+@login_required
 def edit_character(character_id, step):
     ''' ZZ docstring '''
     logger.debug('Call to edit_character')
@@ -142,7 +157,7 @@ def edit_character(character_id, step):
         logger.debug(f'Updated {character.id}')
         step += 1
         if step == 5:
-            return redirect(url_for('home', player_id = character.player.id)) # can eventually go to character sheet
+            return redirect(url_for('home')) # can eventually go to character sheet
         else:
             return redirect(url_for('edit_character', character_id = character.id, step = step)) 
     return render_template('character_edit_{}.html'.format(step), character = character, data = data)

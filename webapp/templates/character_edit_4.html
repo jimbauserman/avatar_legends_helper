@@ -27,7 +27,7 @@
     <div class="form-group">
         <label for="mastered_technique">{{ t.name }}</label>
         <input type="radio" name="mastered_technique" id="mastered_technique" value="{{ t.id }}"></input>
-        <body> {{ t.technique_type }} - {{ t.description }}</body>
+        <body> {{ t.technique_type }} - {{ t.req_training }} - {{ t.description }}</body>
     </div>
     {% endfor %}
 

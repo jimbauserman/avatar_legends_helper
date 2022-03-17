@@ -4,7 +4,8 @@ import json
 import logging
 from datetime import datetime
 from hashlib import md5
-from sqlalchemy.sql.expression import and_, or_
+from flask_login import UserMixin
+from sqlalchemy.sql.expression import and_, or_, not_
 from sqlalchemy.ext.associationproxy import association_proxy
 
 from . import db
@@ -306,7 +307,8 @@ class Character(db.Model, DbMixIn):
     def available_techniques(self):
         return Technique.query.filter(
                 and_(Technique.technique_type == 'Advanced', 
-                or_(Technique.playbook_id == self.playbook_id, Technique.req_training.in_(['Universal', self.training])))
+                or_(Technique.playbook_id == self.playbook_id, Technique.req_training.in_(['Universal', self.training])),
+                not_(Technique.technique_id.in_([t.id for t in self.techniques])))
             ).all()
     
     def set(self, attr, value):
@@ -321,7 +323,7 @@ class Character(db.Model, DbMixIn):
         self.name = name
         self.id = md5((self.player_id + self.name).encode()).hexdigest()
 
-class Player(db.Model, DbMixIn):
+class Player(UserMixin, db.Model, DbMixIn):
     '''
     CREATE TABLE players (
         id                              CHAR(32) NOT NULL,

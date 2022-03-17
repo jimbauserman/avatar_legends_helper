@@ -21,6 +21,7 @@ services:
       MYSQL_DB_USER: root
       MYSQL_DB_PASS: root
       MYSQL_DB_PORT: 3306
+      FLASK_APP_HOST: 0.0.0.0
       FLASK_APP_PORT: 5001
       FLASK_ENV: development
       FLASK_SECRET_KEY: ${FLASK_SECRET_KEY}
