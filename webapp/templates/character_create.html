@@ -1,0 +1,23 @@
+{% extends 'character_edit.html' %}
+
+{% block title %} Create a New Character {% endblock %}
+
+{% block form_fields %} 
+
+    <div class="form-group">
+        <label for="name">Character Name</label>
+        <input type="text" name="name" id="name"
+               placeholder="character name" class="form-control"
+               value="{{ request.form['name'] }}"></input>
+    </div>
+
+    <div class="form-group">
+        <label for="playbook_id">Playbook</label>
+        {% for playbook in playbooks %}
+        <label for="{{ playbook.id }}">{{ playbook.name }}<input type="radio" name="playbook_id" id="{{ playbook.id }}" 
+               title="{{ playbook.description }}" 
+               value="{{ playbook.id }}"></input></label>
+        {% endfor %}
+    </div>
+
+{% endblock %}

@@ -1,10 +1,11 @@
 {% extends 'base.html' %}
 
 {% block content %}
-    <h1>{% block title %} Welcome {{ name }} {% endblock %}</h1>
-    {% for char in chars %}
-        <a href="{{ url_for('character') }}/{{ char['character_id'] }}">
-            <h3>{{ char['character_name'] }} {{ char['character_playbook'] }}</h3>
+    <h1>{% block title %} Welcome {{ player.name }} {% endblock %}</h1>
+    {% for character in player.characters %}
+        <a href="{{ url_for('character') }}/{{ character.id }}">
+            <h2>{{ character.name }} {% if character.playbook %}{{ character.playbook.name }}{% endif %}</h2>
         </a>
     {% endfor %}
+    <a href="{{ url_for('create_character') }}?user={{ player.id }}">Create a character </a>
 {% endblock %}
