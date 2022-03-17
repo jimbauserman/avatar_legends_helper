@@ -110,7 +110,8 @@ def edit_character(character_id, step):
         'statistics': statistics, # all these should ref to db model class that has description
         'trainings': trainings,
         'backgrounds': backgrounds, 
-        'nations': nations
+        'nations': nations,
+        'techniques': Technique.query.filter_by(technique_type = 'Advanced').all()
     }
     if request.method == 'POST':
         for k, v in request.form.items():
@@ -118,22 +119,38 @@ def edit_character(character_id, step):
                 for s in statistics:
                     default = character.playbook.stats[s]
                     val = default + 1 if v == s else default
-                    character.set(s, v)
+                    character.set(s.lower(), val)
+            elif k in ['demeanors','history_questions','connections']: # JSON attributes
+                val = json.dumps(request.form.getlist(k))
+                character.set(k, val)
+            elif k == 'moves':
+                for move_id in request.form.getlist(k):
+                    move = Move.get(move_id)
+                    cm = CharacterMove(character, move)
+                    db.session.add(cm)
+            elif k == 'learned_technique':
+                technique = Technique.get(v)
+                ct = CharacterTechnique(character, technique, mastery = 'Learned')
+                db.session.add(ct)
+            elif k == 'mastered_technique':
+                technique = Technique.get(v)
+                ct = CharacterTechnique(character, technique, mastery = 'Mastered')
+                db.session.add(ct)
             else:
                 character.set(k, v)
         db.session.commit()
-        logger.debug('Updated {character.id}')
+        logger.debug(f'Updated {character.id}')
         step += 1
-        if step == 3:
+        if step == 5:
             return redirect(url_for('home', player_id = character.player.id)) # can eventually go to character sheet
         else:
-            return redirect(url_for('edit_character', character_id = character.id, step = step)) # can eventually go to character sheet
+            return redirect(url_for('edit_character', character_id = character.id, step = step)) 
     return render_template('character_edit_{}.html'.format(step), character = character, data = data)
 
 @app.route('/api/character/<character_id>', methods = ['GET'])
 def get_character(character_id):
     ''' docstring '''
-    logger.debug('Call to get_character for {character_id}')
+    logger.debug(f'Call to get_character for {character_id}')
     data = Character.get(character_id).to_dict()
     resp = {'status': 'success', 'data': data}
     logger.debug(f'Returned {data}')
@@ -142,7 +159,7 @@ def get_character(character_id):
 @app.route('/api/character/<character_id>', methods = ['POST']) 
 def update_character(character_id):
     ''' ZZ docstring '''
-    logger.debug('Call to update_character for {character_id}')
+    logger.debug(f'Call to update_character for {character_id}')
     character = Character.get(character_id)
     if not character:
         return json.dumps({'status': 'failure', 'message': 'That character does not exist'})
