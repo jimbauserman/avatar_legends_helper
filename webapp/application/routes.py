@@ -8,13 +8,14 @@ from hashlib import md5
 from flask import Flask, request, render_template, url_for, flash, redirect
 
 from . import app, db
-from .db_model import Player, Character, Playbook, Move, CharacterMove, Technique, CharacterTechnique
+from .db_model import *
 
 logger = logging.getLogger('routes')
 
 # need helper fns to validate request structure
 
 @app.route('/')
+@app.route('/home')
 def index():
     logger.debug('Request to index')
     return render_template('index.html')
@@ -22,18 +23,8 @@ def index():
 @app.route('/home/<player_id>')
 def home(player_id):
     logger.debug('Request to home')
-    if not player_id or player_id == '':
-        return redirect(url_for('index'))
     player = Player.get_or_404(player_id)
-    char_data = []
-    for c in player.characters:
-        if not c.playbook: # we might want to require playbook on character creation
-            pb = ''
-        else:
-            pb = c.playbook.name
-        char_data.append({'id': c.id, 'name': c.name, 'playbook': pb})
-    # char_data = [{'name': c.name, 'playbook': c.playbook.name} for c in player.characters]
-    return render_template('home.html', name = player.name, chars = char_data)
+    return render_template('home.html', player = player)
 
 @app.route('/register', methods = ['GET','POST'])
 def register():
@@ -83,36 +74,83 @@ def login():
 def character():
     pass
 
-@app.route('/api/character/create', methods = ['POST']) 
+@app.route('/character/create', methods = ['GET','POST'])
 def create_character():
     ''' ZZ docstring '''
     logger.debug('Call to create_character')
     player_id = request.args.get('user')
     player = Player.get(player_id)
-    logger.debug(f'for {player_id}')
-    character_name = request.args.get('cname')
-    if Character.get_name(player.id, character_name):
-        resp = {'status': 'failure', 'message': 'Character already exists', 'data': {}}
-        logger.debug('Duplicate character found')
-    else:
-        player = Player.get(player_id)
-        character = Character(player, character_name)
-        db.session.add(character)
-        for move in Move.starting_moves():
-            cm = CharacterMove(character, move)
-            db.session.add(cm)
-        for technique in Technique.starting_techniques():
-            ct = CharacterTechnique(character, technique)
-            db.session.add(ct)
+    playbooks = Playbook.get_all()
+    if request.method == 'POST':
+        character_name = request.form['name']
+        character = Character.get_name(player.id, character_name)
+        if character:
+            flash('You already have a character with that name')
+        else:
+            character = Character(player, character_name)
+            character.playbook_id = request.form['playbook_id']
+            db.session.add(character)
+            for move in Move.starting_moves():
+                cm = CharacterMove(character, move)
+                db.session.add(cm)
+            for technique in Technique.starting_techniques():
+                ct = CharacterTechnique(character, technique)
+                db.session.add(ct)
+            db.session.commit()
+            logger.debug(f'{character.name} created')
+            return redirect(url_for('edit_character', step = 1, character_id = character.id))
+    return render_template('character_create.html', playbooks = playbooks)
+
+@app.route('/character/<character_id>/edit/<int:step>', methods = ['GET','POST']) 
+def edit_character(character_id, step):
+    ''' ZZ docstring '''
+    logger.debug('Call to edit_character')
+    character = Character.get(character_id)
+    data = {
+        'statistics': statistics, # all these should ref to db model class that has description
+        'trainings': trainings,
+        'backgrounds': backgrounds, 
+        'nations': nations,
+        'techniques': Technique.query.filter_by(technique_type = 'Advanced').all()
+    }
+    if request.method == 'POST':
+        for k, v in request.form.items():
+            if k == 'stat':
+                for s in statistics:
+                    default = character.playbook.stats[s]
+                    val = default + 1 if v == s else default
+                    character.set(s.lower(), val)
+            elif k in ['demeanors','history_questions','connections']: # JSON attributes
+                val = json.dumps(request.form.getlist(k))
+                character.set(k, val)
+            elif k == 'moves':
+                for move_id in request.form.getlist(k):
+                    move = Move.get(move_id)
+                    cm = CharacterMove(character, move)
+                    db.session.add(cm)
+            elif k == 'learned_technique':
+                technique = Technique.get(v)
+                ct = CharacterTechnique(character, technique, mastery = 'Learned')
+                db.session.add(ct)
+            elif k == 'mastered_technique':
+                technique = Technique.get(v)
+                ct = CharacterTechnique(character, technique, mastery = 'Mastered')
+                db.session.add(ct)
+            else:
+                character.set(k, v)
         db.session.commit()
-        resp = {'status': 'success', 'data': {'character_id': character.id}}
-        logger.debug(f'{character.name} created')
-    return json.dumps(resp)
+        logger.debug(f'Updated {character.id}')
+        step += 1
+        if step == 5:
+            return redirect(url_for('home', player_id = character.player.id)) # can eventually go to character sheet
+        else:
+            return redirect(url_for('edit_character', character_id = character.id, step = step)) 
+    return render_template('character_edit_{}.html'.format(step), character = character, data = data)
 
 @app.route('/api/character/<character_id>', methods = ['GET'])
 def get_character(character_id):
     ''' docstring '''
-    logger.debug('Call to get_character for {character_id}')
+    logger.debug(f'Call to get_character for {character_id}')
     data = Character.get(character_id).to_dict()
     resp = {'status': 'success', 'data': data}
     logger.debug(f'Returned {data}')
@@ -121,7 +159,7 @@ def get_character(character_id):
 @app.route('/api/character/<character_id>', methods = ['POST']) 
 def update_character(character_id):
     ''' ZZ docstring '''
-    logger.debug('Call to update_character for {character_id}')
+    logger.debug(f'Call to update_character for {character_id}')
     character = Character.get(character_id)
     if not character:
         return json.dumps({'status': 'failure', 'message': 'That character does not exist'})

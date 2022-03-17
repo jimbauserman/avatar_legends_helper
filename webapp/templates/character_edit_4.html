@@ -1,0 +1,34 @@
+{% extends 'character_edit.html' %}
+
+{% block title %} Edit {{ character.name }} {% endblock %}
+
+{% block form_fields %} 
+
+    <h3>Select starting moves from your playbook (Select 2)</h3>
+    {% for m in character.playbook.moves %}
+    <div class="form-group">
+        <label for="moves">{{ m.name }}</label>
+        <input type="checkbox" name="moves" id="{{ m.id }}" value="{{ m.id }}"></input>
+        <body> {{ m.description }}</body>
+    </div>
+    {% endfor %}
+
+    <h3>Select one learned technique</h3>
+    {% for t in character.available_techniques() %}
+    <div class="form-group">
+        <label for="learned_technique">{{ t.name }}</label>
+        <input type="radio" name="learned_technique" id="learned_technique" value="{{ t.id }}"></input>
+        <body> {{ t.technique_type }} - {{ t.description }}</body>
+    </div>
+    {% endfor %}
+
+    <h3>Select one mastered technique</h3>
+    {% for t in character.available_techniques() %}
+    <div class="form-group">
+        <label for="mastered_technique">{{ t.name }}</label>
+        <input type="radio" name="mastered_technique" id="mastered_technique" value="{{ t.id }}"></input>
+        <body> {{ t.technique_type }} - {{ t.description }}</body>
+    </div>
+    {% endfor %}
+
+{% endblock %}

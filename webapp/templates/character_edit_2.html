@@ -1,0 +1,44 @@
+{% extends 'character_edit.html' %}
+
+{% block title %} Edit {{ character.name }} {% endblock %}
+
+{% block form_fields %} 
+
+    <div class="form-group">
+        <label for="background">Select your character's background</label>
+        {% for bkgrnd in data['backgrounds'] %}
+        <label for="{{ bkgrnd }}">{{ bkgrnd }}
+        <input type="radio" name="background" id="{{ bkgrnd }}" 
+               value="{{ bkgrnd }}"></input></label>
+        {% endfor %}
+    </div>
+
+    <div class="form-group">
+        <label for="hometown">Where is your character from?</label>
+        <input type="text" name="hometown" id="hometown" 
+               class="form-control" value="{{ request.form['hometown'] }}"></input>
+    </div>
+
+    <label for="hometown_nation">What nation is your hometown in?</label>
+    <div class="form-group" name="hometown_nation">
+        {% for nation in data['nations'] %}
+        <label for="{{ nation }}">{{ nation }} Nation<input type="radio" name="hometown_nation" id="{{ nation }}" value="{{ nation }}"></input></label>
+        {% endfor %}
+    </div>
+
+    <div class="form-group">
+        <label for="appearance">What does your character look like?</label>
+        <input type="text" name="appearance" id="appearance" 
+               class="form-control" value="{{ request.form['appearance'] }}"></input>
+    </div>
+
+    <label for="demeanors">What is your general demeanor? (Select 2)</label>
+    <div class="form-group">
+        {% for dem in character.playbook.demeanor_options %}
+        <label for="{{ dem }}">{{ dem }}
+        <input type="checkbox" name="demeanors" id="{{ dem }}" 
+               value="{{ dem }}"></input></label>
+        {% endfor %}
+    </div>
+
+{% endblock %}

@@ -4,6 +4,7 @@ import json
 import logging
 from datetime import datetime
 from hashlib import md5
+from sqlalchemy.sql.expression import and_, or_
 from sqlalchemy.ext.associationproxy import association_proxy
 
 from . import db
@@ -17,6 +18,9 @@ trainings = ['Waterbending','Airbending','Firebending','Earthbending','Weapons',
 move_types = ['Basic','Balance','Playbook','Advancement','Custom']
 statistics = ['Creativity','Focus','Harmony','Passion']
 approaches = ['Defend and Maneuver','Advance and Attack','Evade and Observe']
+
+def stat_str(s):
+    return str(s) if s <= 0 else '+'+str(s)
 
 class DbMixIn(object):
     ''' Base class for project database models '''
@@ -68,9 +72,9 @@ class Playbook(db.Model, DbMixIn):
         start_passion          SMALLINT,
         principle_1            VARCHAR(30),
         principle_2            VARCHAR(30),
-        demeanor_options       VARCHAR(255),
-        history_questions      VARCHAR(1024),
-        connections            VARCHAR(1024),
+        demeanor_options       JSON,
+        history_questions      JSON,
+        connections            JSON,
         moment_of_balance      VARCHAR(1024),
         growth_question        VARCHAR(255),
         PRIMARY KEY(id)
@@ -80,21 +84,38 @@ class Playbook(db.Model, DbMixIn):
     __tablename__ = 'playbooks'
     id = db.Column(db.String(32), primary_key = True, nullable = False)
     name = db.Column(db.String(100), nullable = False)
-    start_creativity = db.Column(db.SmallInteger)
-    start_focus = db.Column(db.SmallInteger)
-    start_harmony = db.Column(db.SmallInteger)
-    start_passion = db.Column(db.SmallInteger)
+    creativity = db.Column(db.SmallInteger)
+    focus = db.Column(db.SmallInteger)
+    harmony = db.Column(db.SmallInteger)
+    passion = db.Column(db.SmallInteger)
     principle_1 = db.Column(db.String(30))
     principle_2 = db.Column(db.String(30))
-    demeanor_options = db.Column(db.String(255))
-    history_questions = db.Column(db.String(1024))
-    connections = db.Column(db.String(1024))
+    demeanor_options = db.Column(db.JSON)
+    history_questions = db.Column(db.JSON)
+    connections = db.Column(db.JSON)
     moment_of_balance = db.Column(db.String(1024))
     growth_question = db.Column(db.String(255))
 
-    protected_columns_ = ['id','name','start_creativity','start_focus','start_harmony',
-                        'start_passion','principle_1','principle_2','history_questions',
+    moves = db.relationship('Move', viewonly = True)
+    technique = db.relationship('Technique', viewonly = True, uselist = False)
+
+    protected_columns_ = ['id','name','creativity','focus','harmony',
+                        'passion','principle_1','principle_2','history_questions',
                         'connections','moment_of_balance','growth_question']
+
+    @property
+    def stats(self):
+        s = {
+            'Creativity': self.creativity,
+            'Focus': self.focus,
+            'Harmony': self.harmony,
+            'Passion': self.passion
+        }
+        return s
+
+    @property
+    def str_stats(self):
+        return {k: stat_str(v) for k, v in self.stats.items()}
 
     def __init__(self, **kwargs):
         super(Playbook, self).__init__(**kwargs)
@@ -119,12 +140,14 @@ class Move(db.Model, DbMixIn):
     id = db.Column(db.String(32), primary_key = True, nullable = False)
     name = db.Column(db.String(100), nullable = False)
     move_type = db.Column(db.Enum(*move_types))
-    playbook = db.Column(db.String(100)) # should be tied to playbook table
+    playbook_id = db.Column(db.String(32), db.ForeignKey('playbooks.id'), nullable = True) 
     statistic = db.Column(db.Enum(*statistics), nullable = True)
     description = db.Column(db.String(1024))
     miss_outcome = db.Column(db.String(255))
     weak_hit_outcome = db.Column(db.String(255))
     strong_hit_outcome = db.Column(db.String(255))
+
+    playbook = db.relationship('Playbook', back_populates = 'moves', uselist = False)
 
     protected_columns_ = ['id','name','move_type','playbook','statistic',
                         'description','miss_outcome','weak_hit_outcome','strong_hit_outcome']
@@ -162,7 +185,7 @@ class Technique(db.Model, DbMixIn):
     technique_type = db.Column(db.Enum(*['Basic','Advanced']))
     approach = db.Column(db.Enum(*approaches))
     req_training = db.Column(db.Enum(*['Universal']+trainings)) # should be tied to non-existent trainings table?
-    req_playbook = db.Column(db.String(100)) # should be tied to playbook table?
+    playbook_id = db.Column(db.String(32), db.ForeignKey('playbooks.id'), nullable = True)
     description = db.Column(db.String(1024))
     cost = db.Column(db.String(100))
     fatigue_cleared = db.Column(db.SmallInteger)
@@ -177,6 +200,8 @@ class Technique(db.Model, DbMixIn):
     # when trying to reference below attribute as 'mastery' or 'technique_mastery' get KeyError
     # https://stackoverflow.com/questions/7417906/sqlalchemy-manytomany-secondary-table-with-additional-fields
     # mastery = association_proxy('technique_mastery', 'character_mastery')
+
+    playbook = db.relationship('Playbook', back_populates = 'technique', uselist = False)
 
     protected_columns_ = ['id','name','technique_type','approach','req_training','req_playbook',
                         'description','cost','fatigue_cleared','conditions_cleared',
@@ -200,10 +225,10 @@ class Character(db.Model, DbMixIn):
         background                      VARCHAR(50),
         hometown                        VARCHAR(255),
         hometown_nation                 ENUM('Water','Air','Fire','Earth'),
-        demeanors                       VARCHAR(255),
+        demeanors                       JSON,
         appearance                      VARCHAR(1024),
-        history_questions               VARCHAR(1024),
-        connections                     VARCHAR(1024),
+        history_questions               JSON,
+        connections                     JSON,
         creativity                      SMALLINT,
         focus                           SMALLINT,
         harmony                         SMALLINT,
@@ -227,16 +252,15 @@ class Character(db.Model, DbMixIn):
     id = db.Column(db.String(32), primary_key = True, nullable = False)
     name = db.Column(db.String(255), nullable = False)
     playbook_id = db.Column(db.String(32), db.ForeignKey('playbooks.id')) # eventually needs to support characters changing playbooks
-    # playbook_name = db.relationship('Playbook', backref = db.backref('name', lazy = True))
     training = db.Column(db.String(50)) # will eventually need to ref training table
     fighting_style = db.Column(db.String(255))
     background = db.Column(db.Enum(*backgrounds))
     hometown = db.Column(db.String(255))
     hometown_nation = db.Column(db.Enum(*nations))
-    demeanors = db.Column(db.String(255))
+    demeanors = db.Column(db.JSON)
     appearance = db.Column(db.String(1024))
-    history_questions = db.Column(db.String(1024))
-    connections = db.Column(db.String(1024))
+    history_questions = db.Column(db.JSON)
+    connections = db.Column(db.JSON)
     creativity = db.Column(db.SmallInteger)
     focus = db.Column(db.SmallInteger)
     harmony = db.Column(db.SmallInteger)
@@ -256,6 +280,34 @@ class Character(db.Model, DbMixIn):
     techniques = db.relationship('Technique', secondary = lambda: CharacterTechnique.__table__, viewonly = True)
 
     protected_columns_ = ['player_id','id','name']
+
+    @property
+    def stats(self):
+        s = {
+            'Creativity': self.creativity,
+            'Focus': self.focus,
+            'Harmony': self.harmony,
+            'Passion': self.passion
+        }
+        return s
+
+    @property
+    def str_stats(self):
+        return {k: stat_str(v) for k, v in self.stats.items()}
+
+    @property
+    def filled_history_questions(self):
+        return [{q: a} for q, a in zip(self.playbook.history_questions, self.history_questions)]
+
+    @property
+    def filled_connections(self):
+        return [q.replace('$BLANK$', a) for q, a in zip(self.playbook.connections, self.connections)]
+
+    def available_techniques(self):
+        return Technique.query.filter(
+                and_(Technique.technique_type == 'Advanced', 
+                or_(Technique.playbook_id == self.playbook_id, Technique.req_training.in_(['Universal', self.training])))
+            ).all()
     
     def set(self, attr, value):
         self.__setattr__(attr, value)
