@@ -48,7 +48,7 @@ def register():
             flash('Passwords do not match')
         else:
             if Player.get_name(player_name):
-                flash('''Player name {} already exists. <a href="{{ url_for('login') }}">Login here.</a>'''.format(player_name)) # this doesnt work
+                flash('''Player name {name} already exists. <a href="{url}">Login here.</a>'''.format(name = player_name, url = url_for('login')))
             else:
                 player = Player(player_name, player_pass_raw)
                 db.session.add(player)
@@ -68,7 +68,7 @@ def login():
         req_pw = md5(request.form['pass'].encode()).hexdigest()
         player = Player.get_name(player_name)
         if not player:
-            flash('''No player with that name exists. <a href="{{ url_for('register') }}">Sign up here!</a>''') # this doesnt work
+            flash('''No player with that name exists. <a href="{url}">Sign up here!</a>'''.format(url = url_for('register')))
         else:
             if req_pw != player.password_hash:
                 flash('Incorrect player name or password.')

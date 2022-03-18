@@ -308,7 +308,7 @@ class Character(db.Model, DbMixIn):
         return Technique.query.filter(
                 and_(Technique.technique_type == 'Advanced', 
                 or_(Technique.playbook_id == self.playbook_id, Technique.req_training.in_(['Universal', self.training])),
-                not_(Technique.technique_id.in_([t.id for t in self.techniques])))
+                not_(Technique.id.in_([t.id for t in self.techniques])))
             ).all()
     
     def set(self, attr, value):
