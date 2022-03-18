@@ -11,12 +11,11 @@ from is_safe_url import is_safe_url
 
 from . import app, db, login_manager
 from .db_model import *
+from .forms import RegistrationForm, flash_errors
 
 FLASK_APP_HOST = os.environ['FLASK_APP_HOST']
 
 logger = logging.getLogger('routes')
-
-# need helper fns to validate request structure
 
 # configure login 
 @login_manager.user_loader
@@ -37,26 +36,24 @@ def home():
 
 @app.route('/register', methods = ['GET','POST'])
 def register():
-    # try https://flask.palletsprojects.com/en/2.0.x/patterns/wtforms/
     logger.debug('Request to register')
+    form = RegistrationForm(request.form)
     if request.method == 'POST':
-        player_name = request.form['name']
-        logger.debug(f'Call to create_player for {player_name}')
-        player_pass_raw = request.form['pass']
-        player_pass_raw2 = request.form['pass2']
-        if player_pass_raw != player_pass_raw2:
-            flash('Passwords do not match')
-        else:
+        if form.validate():
+            player_name = form.name.data 
+            logger.debug(f'Call to create_player for {player_name}')
             if Player.get_name(player_name):
                 flash('''Player name {name} already exists. <a href="{url}">Login here.</a>'''.format(name = player_name, url = url_for('login')))
             else:
-                player = Player(player_name, player_pass_raw)
+                player = Player(player_name, form.password.data)
                 db.session.add(player)
                 db.session.commit()
                 logger.debug(f'Inserted {player.id}')
                 login_user(player)
                 return redirect(url_for('home'))
-    return render_template('register.html')
+        else:
+            flash_errors(form)
+    return render_template('register.html', form = form)
 
 @app.route('/login', methods = ['GET','POST'])
 def login():

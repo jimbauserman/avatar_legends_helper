@@ -4,3 +4,4 @@ PyYAML==5.3
 flask-login==0.5.0
 is-safe-url==1.0
 flask-sqlalchemy==2.5.1
+wtforms==3.0.1
