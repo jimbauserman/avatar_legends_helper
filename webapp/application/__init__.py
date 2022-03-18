@@ -6,8 +6,8 @@ import logging.config
 import yaml
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
+from flask_login import LoginManager
 
-FLASK_APP_PORT = int(os.environ['FLASK_APP_PORT'])
 FLASK_SECRET_KEY = os.environ['FLASK_SECRET_KEY']
 DB_USER = os.environ['MYSQL_DB_USER'] 
 DB_PASS = os.environ['MYSQL_DB_PASS'] 
@@ -19,6 +19,7 @@ with open('application/logging_conf.yaml', 'r') as f:
 logger = logging.getLogger(__name__)
 
 db = SQLAlchemy()
+login_manager = LoginManager()
 
 def create_app():
     """Construct the core application."""
@@ -29,6 +30,7 @@ def create_app():
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
     db.init_app(app)
+    login_manager.init_app(app)
 
     return app
 
