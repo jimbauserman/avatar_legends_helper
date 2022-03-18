@@ -6,7 +6,7 @@ import logging
 from datetime import datetime
 from hashlib import md5
 from flask import request, render_template, url_for, flash, redirect, abort
-from flask_login import current_user, login_user, login_required
+from flask_login import current_user, login_user, logout_user, login_required
 from is_safe_url import is_safe_url
 
 from . import app, db, login_manager
@@ -83,6 +83,12 @@ def login():
                 return redirect(next or url_for('home'))
 
     return render_template('login.html')
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for('index'))
 
 @app.route('/character')
 def character():
