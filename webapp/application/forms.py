@@ -10,9 +10,19 @@ def flash_errors(form):
             flash(error)
 
 class RegistrationForm(Form):
-    name = StringField('Player Name', [validators.Length(min=4, max=25)], message = 'Player name must be between 4 and 25 characters long')
+    name = StringField('Player Name', [
+        validators.Length(min = 4, max = 25, message = 'Player name must be between 4 and 25 characters long')
+    ])
     password = PasswordField('New Password', [
         validators.DataRequired(message = 'Please enter a password'),
-        validators.EqualTo('confirm', message='Passwords must match')
+        validators.EqualTo('confirm', message = 'Passwords must match')
     ])
     confirm = PasswordField('Repeat Password')
+
+class LoginForm(Form):
+    name = StringField('Player Name', [
+        validators.Length(min = 4, max = 25, message = 'Player name must be between 4 and 25 characters long')
+    ])
+    password = PasswordField('Password', [
+        validators.DataRequired(message = 'Please enter a password')
+    ])

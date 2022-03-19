@@ -11,7 +11,7 @@ from is_safe_url import is_safe_url
 
 from . import app, db, login_manager
 from .db_model import *
-from .forms import RegistrationForm, flash_errors
+from .forms import RegistrationForm, LoginForm, flash_errors
 
 FLASK_APP_HOST = os.environ['FLASK_APP_HOST']
 
@@ -38,31 +38,30 @@ def home():
 def register():
     logger.debug('Request to register')
     form = RegistrationForm(request.form)
-    if request.method == 'POST':
-        if form.validate():
-            player_name = form.name.data 
-            logger.debug(f'Call to create_player for {player_name}')
-            if Player.get_name(player_name):
-                flash('''Player name {name} already exists. <a href="{url}">Login here.</a>'''.format(name = player_name, url = url_for('login')))
-            else:
-                player = Player(player_name, form.password.data)
-                db.session.add(player)
-                db.session.commit()
-                logger.debug(f'Inserted {player.id}')
-                login_user(player)
-                return redirect(url_for('home'))
+    if request.method == 'POST' and form.validate():
+        player_name = form.name.data 
+        logger.debug(f'Call to create_player for {player_name}')
+        if Player.get_name(player_name):
+            flash('''Player name {name} already exists. <a href="{url}">Login here.</a>'''.format(name = player_name, url = url_for('login')))
         else:
-            flash_errors(form)
+            player = Player(player_name, form.password.data)
+            db.session.add(player)
+            db.session.commit()
+            logger.debug(f'Inserted {player.id}')
+            login_user(player)
+            return redirect(url_for('home'))
+    else:
+        flash_errors(form)
     return render_template('register.html', form = form)
 
 @app.route('/login', methods = ['GET','POST'])
 def login():
     logger.debug('Request to login')
-    if request.method == 'POST':
-        logger.debug('Login for submitted')
-        player_name = request.form['name'] 
-        logger.debug(f'for {player_name}')
-        req_pw = md5(request.form['pass'].encode()).hexdigest()
+    form = LoginForm(request.form)
+    if request.method == 'POST' and form.validate():
+        player_name = form.name.data 
+        logger.debug('Login for {player_name} submitted')
+        req_pw = md5(form.password.data.encode()).hexdigest()
         player = Player.get_name(player_name)
         if not player:
             flash('''No player with that name exists. <a href="{url}">Sign up here!</a>'''.format(url = url_for('register')))
@@ -78,8 +77,10 @@ def login():
                 if next and not is_safe_url(next, {FLASK_APP_HOST}):
                     return abort(400)
                 return redirect(next or url_for('home'))
+    else:
+        flash_errors(form)
 
-    return render_template('login.html')
+    return render_template('login.html', form = form)
 
 @app.route('/logout')
 @login_required
