@@ -14,7 +14,7 @@ logger = logging.getLogger('db_model')
 
 # temp defs for enums. https://docs.sqlalchemy.org/en/14/core/type_basics.html#sqlalchemy.types.Enum
 backgrounds = ['Military','Monastic','Outlaw','Privileged','Urban','Wilderness']
-nations = ['Water','Air','Fire','Earth']
+nations = ['Water Tribes','Air Nomads','Fire Nation','Earth Kingdom']
 trainings = ['Waterbending','Airbending','Firebending','Earthbending','Weapons','Technology']
 move_types = ['Basic','Balance','Playbook','Advancement','Custom']
 statistics = ['Creativity','Focus','Harmony','Passion']
@@ -225,7 +225,7 @@ class Character(db.Model, DbMixIn):
         fighting_style                  VARCHAR(255),
         background                      VARCHAR(50),
         hometown                        VARCHAR(255),
-        hometown_nation                 ENUM('Water','Air','Fire','Earth'),
+        hometown_region                 ENUM('Water Tribes','Air Nomads','Fire Nation','Earth Kingdom'),
         demeanors                       JSON,
         appearance                      VARCHAR(1024),
         history_questions               JSON,
@@ -257,7 +257,7 @@ class Character(db.Model, DbMixIn):
     fighting_style = db.Column(db.String(255))
     background = db.Column(db.Enum(*backgrounds))
     hometown = db.Column(db.String(255))
-    hometown_nation = db.Column(db.Enum(*nations))
+    hometown_region = db.Column(db.Enum(*nations))
     demeanors = db.Column(db.JSON)
     appearance = db.Column(db.String(1024))
     history_questions = db.Column(db.JSON)
@@ -266,6 +266,9 @@ class Character(db.Model, DbMixIn):
     focus = db.Column(db.SmallInteger)
     harmony = db.Column(db.SmallInteger)
     passion = db.Column(db.SmallInteger)
+    creation_stat_increase = db.Column(db.Enum(*statistics))
+    creation_moves = db.Column(db.JSON)
+    creation_techniques = db.Column(db.JSON)
     fatigue = db.Column(db.SmallInteger, default = 0)
     balance = db.Column(db.SmallInteger, default = 0)
     balance_center = db.Column(db.SmallInteger, default = 0)
@@ -304,12 +307,19 @@ class Character(db.Model, DbMixIn):
     def filled_connections(self):
         return [q.replace('$BLANK$', a) for q, a in zip(self.playbook.connections, self.connections)]
 
-    def available_techniques(self):
-        return Technique.query.filter(
-                and_(Technique.technique_type == 'Advanced', 
-                or_(Technique.playbook_id == self.playbook_id, Technique.req_training.in_(['Universal', self.training])),
-                not_(Technique.id.in_([t.id for t in self.techniques])))
-            ).all()
+    def available_techniques(self, include_known = False):
+        if include_known:
+            t = Technique.query.filter(
+                    and_(Technique.technique_type == 'Advanced', 
+                    or_(Technique.playbook_id == self.playbook_id, Technique.req_training.in_(['Universal', self.training])))
+                ).all()
+        else: 
+            t = Technique.query.filter(
+                    and_(Technique.technique_type == 'Advanced', 
+                    or_(Technique.playbook_id == self.playbook_id, Technique.req_training.in_(['Universal', self.training])),
+                    not_(Technique.id.in_([t.id for t in self.techniques])))
+                ).all()
+        return t
     
     def set(self, attr, value):
         self.__setattr__(attr, value)
@@ -317,11 +327,12 @@ class Character(db.Model, DbMixIn):
     def get_name(player_id, name):
         return Character.query.filter_by(name = name, player_id = player_id).first()
 
-    def __init__(self, player, name, **kwargs):
+    def __init__(self, player, name, playbook_id, **kwargs):
         super(Character, self).__init__(**kwargs)
         self.player_id = player.id 
         self.name = name
         self.id = md5((self.player_id + self.name).encode()).hexdigest()
+        self.playbook_id = playbook_id
 
 class Player(UserMixin, db.Model, DbMixIn):
     '''
@@ -369,10 +380,10 @@ class CharacterMove(db.Model):
     def get(character_id, move_id):
         return CharacterMove.query.filter_by(character_id = character_id, move_id = move_id).first()
 
-    def __init__(self, character, move, **kwargs):
+    def __init__(self, character_id, move_id, **kwargs):
         super(CharacterMove, self).__init__(**kwargs)
-        self.character_id = character.id 
-        self.move_id = move.id
+        self.character_id = character_id 
+        self.move_id = move_id
 
 class CharacterTechnique(db.Model):
     '''
@@ -395,12 +406,12 @@ class CharacterTechnique(db.Model):
     def get(character_id, technique_id):
         return CharacterTechnique.query.filter_by(character_id = character_id, technique_id = technique_id).first()
 
-    def __init__(self, character, technique, mastery = None, **kwargs):
+    def __init__(self, character_id, technique_id, mastery = None, **kwargs):
         super(CharacterTechnique, self).__init__(**kwargs)
-        self.character_id = character.id 
-        self.technique_id = technique.id
+        self.character_id = character_id 
+        self.technique_id = technique_id
         if not mastery:
-            self.mastery = 'Basic' if technique.technique_type == 'Basic' else 'Learned'
+            self.mastery = 'Basic' if Technique.get(technique_id).technique_type == 'Basic' else 'Learned'
         else:
             self.mastery = mastery
 

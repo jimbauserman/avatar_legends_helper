@@ -23,6 +23,15 @@ CREATE TABLE playbooks (
 ;
 
 -- Playbook special features, The Adamant's Lodestar
+-- name of feature "target" (adamant's lodestar, guardian's ward, hammer's adversary)
+-- character creation selections (icon's responsibilites/prohibitions, bold's drives)
+-- JSON schema:
+-- [{"name": "responsibilities", "select": 3, "options": ["overthrowing tyrants",...], "changed_when": null},...]
+-- before session actions
+-- end of session actions
+-- associated moves
+-- special resource (pillar's team, successor's resource)
+
 
 -- Trainings
 CREATE TABLE trainings (
@@ -111,12 +120,11 @@ CREATE TABLE characters (
     id                              CHAR(32) NOT NULL,
     name                            VARCHAR(255) NOT NULL,
     playbook_id                     CHAR(32), 
-    -- playbook_name                   VARCHAR(100), 
     training                        VARCHAR(50),
     fighting_style                  VARCHAR(255),
     background                      ENUM('Military','Monastic','Outlaw','Privileged','Urban','Wilderness'),
     hometown                        VARCHAR(255),
-    hometown_nation                 ENUM('Water','Air','Fire','Earth'),
+    hometown_region                 ENUM('Water Tribes','Air Nomads','Fire Nation','Earth Kingdom'),
     demeanors                       JSON,
     appearance                      VARCHAR(1024),
     history_questions               JSON,
@@ -125,6 +133,9 @@ CREATE TABLE characters (
     focus                           SMALLINT,
     harmony                         SMALLINT,
     passion                         SMALLINT,
+    creation_stat_increase          ENUM('Creativity','Focus','Harmony','Passion'),
+    creation_moves                  JSON,
+    creation_techniques             JSON,
     fatigue                         SMALLINT DEFAULT 0, 
     balance                         SMALLINT DEFAULT 0, 
     balance_center                  SMALLINT DEFAULT 0,

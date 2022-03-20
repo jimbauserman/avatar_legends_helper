@@ -4,24 +4,31 @@
 
 {% block form_fields %} 
 
-    <div class="form-group">
-        <label for="stat">Choose one statistic to increase by +1</label>
-        {% for stat in data['statistics'] %}
-        <label for="{{ stat }}">{{ stat }} (base: {{ character.playbook.str_stats[stat] }})<input type="radio" name="stat" id="{{ stat }}" value="{{ stat }}"></input></label>
-        {% endfor %}
+<div id="tabs">
+    <ul>
+      <li id="stats-tab-button"><a href="#stats_tab">Statistics & Training</a></li>
+      <li id="background-tab-button"><a href="#background_tab">Background</a></li>
+    </ul>
+    <div id="stats_tab">
+        {{ render_field(form.stat) }}
+        {{ render_field(form.training) }}
+        {{ render_field(form.fighting_style) }}
     </div>
-
-    <div class="form-group">
-        <label for="training">Choose your character's training</label>
-        {% for training in data['trainings'] %}
-        <label for="{{ training }}">{{ training }}<input type="radio" name="training" id="{{ training }}" value="{{ training }}"></input></label>
-        {% endfor %}
+    <div id="background_tab">
+        {{ render_field(form.background) }}
+        {{ render_field(form.hometown) }}
+        {{ render_field(form.hometown_region) }}
+        {{ render_field(form.appearance) }}
+        {{ render_field(form.demeanors) }}
     </div>
+</div>
 
-    <div class="form-group">
-        <label for="fighting_style">Describe your character's fighting style</label>
-        <input type="text-area" name="fighting_style" id="fighting_style" 
-               class="form-control" value="{{ request.form['fighting_style'] }}"></input>
-    </div>
+{% endblock %}
 
+{% block scripts %} 
+<script type="text/javascript">   
+$( function() {
+    $( "#tabs" ).tabs();
+} ); 
+</script> 
 {% endblock %}

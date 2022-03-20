@@ -26,3 +26,6 @@ loggers:
   db_model:
     handlers: [console, logfile]
     level: DEBUG
+  forms:
+    handlers: [console, logfile]
+    level: DEBUG

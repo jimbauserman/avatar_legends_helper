@@ -11,7 +11,7 @@ from is_safe_url import is_safe_url
 
 from . import app, db, login_manager
 from .db_model import *
-from .forms import RegistrationForm, LoginForm, flash_errors
+from .forms import RegistrationForm, LoginForm, CharacterCreateForm, CharacterEditForm, flash_errors
 
 FLASK_APP_HOST = os.environ['FLASK_APP_HOST']
 
@@ -42,7 +42,7 @@ def register():
         player_name = form.name.data 
         logger.debug(f'Call to create_player for {player_name}')
         if Player.get_name(player_name):
-            flash('''Player name {name} already exists. <a href="{url}">Login here.</a>'''.format(name = player_name, url = url_for('login')))
+            flash('''Player name {name} already exists. <a href="{url}">Login here.</a>'''.format(name = player_name, url = url_for('login')), 'danger')
         else:
             player = Player(player_name, form.password.data)
             db.session.add(player)
@@ -64,10 +64,10 @@ def login():
         req_pw = md5(form.password.data.encode()).hexdigest()
         player = Player.get_name(player_name)
         if not player:
-            flash('''No player with that name exists. <a href="{url}">Sign up here!</a>'''.format(url = url_for('register')))
+            flash('''No player with that name exists. <a href="{url}">Sign up here!</a>'''.format(url = url_for('register')), 'danger')
         else:
             if req_pw != player.password_hash:
-                flash('Incorrect player name or password.')
+                flash('Incorrect player name or password', 'danger')
                 logger.debug('Failed attempt')
             else:
                 logger.debug('Successful attempt')
@@ -98,73 +98,96 @@ def create_character():
     ''' ZZ docstring '''
     logger.debug('Call to create_character')
     player = current_user
-    playbooks = Playbook.get_all()
-    if request.method == 'POST':
-        character_name = request.form['name']
+    form = CharacterCreateForm(request.form)
+    form.playbook_id.choices = [(p.id, p.name) for p in Playbook.get_all()]
+    if request.method == 'POST' and form.validate():
+        character_name = form.name.data
         character = Character.get_name(player.id, character_name)
         if character:
-            flash('You already have a character with that name')
+            flash('You already have a character with that name', 'danger')
         else:
-            character = Character(player, character_name)
-            character.playbook_id = request.form['playbook_id']
+            playbook_id = form.playbook_id.data
+            character = Character(player, character_name, playbook_id)
             db.session.add(character)
             for move in Move.starting_moves():
-                cm = CharacterMove(character, move)
+                cm = CharacterMove(character.id, move.id)
                 db.session.add(cm)
             for technique in Technique.starting_techniques():
-                ct = CharacterTechnique(character, technique)
+                ct = CharacterTechnique(character.id, technique.id)
                 db.session.add(ct)
             db.session.commit()
+            for s in statistics:
+                character.set(s.lower(), character.playbook.stats[s])
+            db.session.commit()
             logger.debug(f'{character.name} created')
-            return redirect(url_for('edit_character', step = 1, character_id = character.id))
-    return render_template('character_create.html', playbooks = playbooks)
+            return redirect(url_for('edit_character', character_id = character.id))
+    else:
+        flash_errors(form)
+    return render_template('character_create.html', form = form)
 
-@app.route('/character/<character_id>/edit/<int:step>', methods = ['GET','POST']) 
-@login_required
-def edit_character(character_id, step):
+@app.route('/character/<character_id>/edit', methods = ['GET','POST']) 
+@login_required # doesnt check if character actually belongs to logged in player
+def edit_character(character_id):
     ''' ZZ docstring '''
     logger.debug('Call to edit_character')
     character = Character.get(character_id)
-    data = {
-        'statistics': statistics, # all these should ref to db model class that has description
-        'trainings': trainings,
-        'backgrounds': backgrounds, 
-        'nations': nations,
-        'techniques': Technique.query.filter_by(technique_type = 'Advanced').all()
-    }
-    if request.method == 'POST':
-        for k, v in request.form.items():
-            if k == 'stat':
-                for s in statistics:
-                    default = character.playbook.stats[s]
-                    val = default + 1 if v == s else default
-                    character.set(s.lower(), val)
-            elif k in ['demeanors','history_questions','connections']: # JSON attributes
-                val = json.dumps(request.form.getlist(k))
-                character.set(k, val)
-            elif k == 'moves':
-                for move_id in request.form.getlist(k):
-                    move = Move.get(move_id)
-                    cm = CharacterMove(character, move)
-                    db.session.add(cm)
-            elif k == 'learned_technique':
-                technique = Technique.get(v)
-                ct = CharacterTechnique(character, technique, mastery = 'Learned')
-                db.session.add(ct)
-            elif k == 'mastered_technique':
-                technique = Technique.get(v)
-                ct = CharacterTechnique(character, technique, mastery = 'Mastered')
-                db.session.add(ct)
-            else:
-                character.set(k, v)
+    form = CharacterEditForm(request.form)
+    form.set_choices(character) # technique choices always lagged by one submit 
+    if request.method == 'GET':
+        form.set_defaults(character)
+    elif request.method == 'POST' and form.validate():
+        for field, value in form.data.items():
+            if value and any(value):
+                # all this junk should probably be methods of Character
+                if field == 'stat':
+                    prev = character.creation_stat_increase
+                    if not prev:
+                        character.creation_stat_increase = value # there has to be a way to not repeat these two lines
+                        character.set(value.lower(), character.stats[value] + 1)
+                    elif prev != value: 
+                        character.set(prev.lower(), character.stats[prev] - 1)
+                        character.creation_stat_increase = value
+                        character.set(value.lower(), character.stats[value] + 1)
+                    # else remained the same so do nothing
+                elif field == 'moves':
+                    if character.creation_moves:
+                        new = [m for m in value if m not in character.creation_moves]
+                        removed = [m for m in character.creation_moves if m not in value]
+                    else:
+                        new = value 
+                        removed = []
+                    for move_id in new:
+                        cm = CharacterMove(character.id, move_id)
+                        db.session.add(cm)
+                    for move_id in removed:
+                        cm = CharacterMove.get(character.id, move_id)
+                        db.session.delete(cm)
+                    character.creation_moves = value
+                elif field == 'techniques':
+                    dict_value = {'Learned': value[0], 'Mastered': value[1]}
+                    if character.creation_techniques:
+                        prev_l = character.creation_techniques['Learned']
+                        prev_m = character.creation_techniques['Mastered']
+                        if dict_value['Learned'] != prev_l:
+                            del_ct = CharacterTechnique.get(character.id, prev_l)
+                            db.session.delete(del_ct)
+                        if dict_value['Mastered'] != prev_m:
+                            del_ct = CharacterTechnique.get(character.id, prev_m)
+                            db.session.delete(del_ct)   
+                    character.creation_techniques = dict_value
+                    ctl = CharacterTechnique(character_id, dict_value['Learned'], mastery = 'Learned')
+                    ctm = CharacterTechnique(character_id, dict_value['Mastered'], mastery = 'Mastered')
+                    db.session.add(ctl)
+                    db.session.add(ctm)
+                else:
+                    character.set(field, value)
         db.session.commit()
         logger.debug(f'Updated {character.id}')
-        step += 1
-        if step == 5:
-            return redirect(url_for('home')) # can eventually go to character sheet
-        else:
-            return redirect(url_for('edit_character', character_id = character.id, step = step)) 
-    return render_template('character_edit_{}.html'.format(step), character = character, data = data)
+        flash('Character updated', 'success') 
+        # return redirect(url_for('home')) # can eventually go to character sheet
+    else:
+        flash_errors(form)
+    return render_template('character_edit.html', character = character, form = form) # would be nice if this snapped you back to tab you were on
 
 @app.route('/api/character/<character_id>', methods = ['GET'])
 def get_character(character_id):
