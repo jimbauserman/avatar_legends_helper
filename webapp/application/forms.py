@@ -111,7 +111,7 @@ class CharacterTechniqueForm(Form):
 
 class CharacterEditForm(Form):
 
-    stat = RadioField(
+    creation_stat_increase = RadioField(
         'Choose one statistic to increase by +1', 
         [validators.Optional()]
     )
@@ -156,11 +156,11 @@ class CharacterEditForm(Form):
         'Character Connections', 
         min_entries = 2
     )
-    moves = MultiCheckboxField(
+    creation_moves = MultiCheckboxField(
         "Select two moves from your character's playbook",
         [validators.Optional(), validators.Length(min = 2, max = 2, message = 'Please select exactly two moves')]
     )
-    techniques = FieldList(
+    creation_techniques = FieldList(
         RadioField('placeholder', [validators.Optional()]),
         'Select one learned and one mastered technique',
         [FieldListOptional(), FieldListNotEqual(), FieldListLength(min = 2, max = 2, message = 'Please select one technique of each type')],
@@ -169,23 +169,23 @@ class CharacterEditForm(Form):
 
     def set_choices(self, character):
         base_stats = character.playbook.str_stats
-        self.stat.choices = [(s, '{} (base: {})'.format(s, base_stats[s])) for s in statistics]
+        self.creation_stat_increase.choices = [(s, '{} (base: {})'.format(s, base_stats[s])) for s in statistics]
         self.demeanors.choices = character.playbook.demeanor_options
-        self.moves.choices = [(m.id, m.name + ': ' + m.description) for m in character.playbook.moves]
+        self.creation_moves.choices = [(m.id, m.name + ': ' + m.description) for m in character.playbook.moves]
         for i, e in enumerate(self.history_questions.entries):
             e.label = character.playbook.history_questions[i]
         for i, e in enumerate(self.connections.entries):
             e.label = character.playbook.connections[i].replace('$BLANK$', '_'*10)
         t_list = character.available_techniques(include_known = True)
-        for i, e in enumerate(self.techniques.entries):
+        for i, e in enumerate(self.creation_techniques.entries):
             e.label = 'Learned' if i == 0 else 'Mastered'
             e.choices = [(t.id, t.name + ': ' + t.description) for t in t_list]
         t_lbl = 'Select one learned and one mastered technique'
         t_lbl_add = '(Select a training to see additional options)'
-        self.techniques.label = t_lbl if character.training else ' '.join([t_lbl, t_lbl_add])
+        self.creation_techniques.label = t_lbl if character.training else ' '.join([t_lbl, t_lbl_add])
 
     def set_defaults(self, character):
-        self.stat.data = character.creation_stat_increase
+        self.creation_stat_increase.data = character.creation_stat_increase
         self.training.data = character.training
         self.fighting_style.data = character.fighting_style
         self.background.data = character.background
@@ -193,12 +193,12 @@ class CharacterEditForm(Form):
         self.hometown_region.data = character.hometown_region
         self.appearance.data = character.appearance
         self.demeanors.data = character.demeanors
-        self.moves.data = character.creation_moves
+        self.creation_moves.data = character.creation_moves
         for i, e in enumerate(self.history_questions.entries):
             e.data = character.history_questions[i] if character.history_questions else None
         for i, e in enumerate(self.connections.entries):
             e.data = character.connections[i] if character.connections else None
-        for i, e in enumerate(self.techniques.entries):
+        for i, e in enumerate(self.creation_techniques.entries):
             mastery = 'Learned' if i == 0 else 'Mastered'
             e.data = character.creation_techniques[mastery] if character.creation_techniques else None
 

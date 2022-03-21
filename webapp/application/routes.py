@@ -137,46 +137,8 @@ def edit_character(character_id):
         for field, value in form.data.items():
             if value and any(value):
                 # all this junk should probably be methods of Character
-                if field == 'stat':
-                    prev = character.creation_stat_increase
-                    if not prev:
-                        character.creation_stat_increase = value # there has to be a way to not repeat these two lines
-                        character.set(value.lower(), character.stats[value] + 1)
-                    elif prev != value: 
-                        character.set(prev.lower(), character.stats[prev] - 1)
-                        character.creation_stat_increase = value
-                        character.set(value.lower(), character.stats[value] + 1)
-                    # else remained the same so do nothing
-                elif field == 'moves':
-                    if character.creation_moves:
-                        new = [m for m in value if m not in character.creation_moves]
-                        removed = [m for m in character.creation_moves if m not in value]
-                    else:
-                        new = value 
-                        removed = []
-                    for move_id in new:
-                        cm = CharacterMove(character.id, move_id)
-                        db.session.add(cm)
-                    for move_id in removed:
-                        cm = CharacterMove.get(character.id, move_id)
-                        db.session.delete(cm)
-                    character.creation_moves = value
-                elif field == 'techniques':
-                    dict_value = {'Learned': value[0], 'Mastered': value[1]}
-                    if character.creation_techniques:
-                        prev_l = character.creation_techniques['Learned']
-                        prev_m = character.creation_techniques['Mastered']
-                        if dict_value['Learned'] != prev_l:
-                            del_ct = CharacterTechnique.get(character.id, prev_l)
-                            db.session.delete(del_ct)
-                        if dict_value['Mastered'] != prev_m:
-                            del_ct = CharacterTechnique.get(character.id, prev_m)
-                            db.session.delete(del_ct)   
-                    character.creation_techniques = dict_value
-                    ctl = CharacterTechnique(character_id, dict_value['Learned'], mastery = 'Learned')
-                    ctm = CharacterTechnique(character_id, dict_value['Mastered'], mastery = 'Mastered')
-                    db.session.add(ctl)
-                    db.session.add(ctm)
+                if field in ['creation_moves','creation_techniques']:
+                    character.set(field, value, session = db.session)
                 else:
                     character.set(field, value)
         db.session.commit()

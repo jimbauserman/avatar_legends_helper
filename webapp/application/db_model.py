@@ -320,9 +320,62 @@ class Character(db.Model, DbMixIn):
                     not_(Technique.id.in_([t.id for t in self.techniques])))
                 ).all()
         return t
+
+    def _set_creation_stat(self, value):
+        prev = self.creation_stat_increase
+        if prev and prev != value:
+            self.set(prev.lower(), self.stats[prev] - 1)
+        self.creation_stat_increase = value
+        self.set(value.lower(), self.stats[value] + 1)
+
+    def _set_creation_moves(self, value, session):
+        if not session:
+            raise ValueError('Session must be passed to Character.set() to update moves and techniques')
+        prev = self.creation_moves
+        if prev:
+            new = [m for m in value if m not in prev]
+            removed = [m for m in prev if m not in value]
+        else:
+            new = value 
+            removed = []
+        for move_id in new:
+            cm = CharacterMove(self.id, move_id)
+            session.add(cm)
+        for move_id in removed:
+            cm = CharacterMove.get(self.id, move_id)
+            session.delete(cm)
+        self.creation_moves = value
+
+    def _set_creation_techniques(self, value, session):
+        if not session:
+            raise ValueError('Session must be passed to Character.set() to update moves and techniques')
+        l = value[0]
+        m = value[1]
+        dict_value = {'Learned': l, 'Mastered': m}
+        if self.creation_techniques:
+            prev_l = self.creation_techniques['Learned']
+            prev_m = self.creation_techniques['Mastered']
+            if l != prev_l:
+                del_ct = CharacterTechnique.get(self.id, prev_l)
+                session.delete(del_ct)
+            if m != prev_m:
+                del_ct = CharacterTechnique.get(self.id, prev_m)
+                session.delete(del_ct)   
+        self.creation_techniques = dict_value
+        ctl = CharacterTechnique(self.id, l, mastery = 'Learned')
+        ctm = CharacterTechnique(self.id, m, mastery = 'Mastered')
+        session.add(ctl)
+        session.add(ctm)
     
-    def set(self, attr, value):
-        self.__setattr__(attr, value)
+    def set(self, attr, value, session = None):
+        if attr == 'creation_stat_increase':
+            self._set_creation_stat(value)
+        elif attr == 'creation_moves':
+            self._set_creation_moves(value, session)
+        elif attr == 'creation_techniques':
+            self._set_creation_techniques(value, session)
+        else:
+            self.__setattr__(attr, value)
 
     def get_name(player_id, name):
         return Character.query.filter_by(name = name, player_id = player_id).first()

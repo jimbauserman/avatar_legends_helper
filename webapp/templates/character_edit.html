@@ -12,7 +12,7 @@
               <li id="mt-tab-button"><a href="#mt_tab">Moves & Techniques</a></li>
             </ul>
             <div id="stats_tab">
-                {{ render_field(form.stat) }}
+                {{ render_field(form.creation_stat_increase) }}
                 {{ render_field(form.training) }}
                 {{ render_field(form.fighting_style) }}
             </div>
@@ -29,8 +29,8 @@
                 {{ render_field(form.connections) }}
             </div>
             <div id="mt_tab">
-                {{ render_field(form.moves) }}
-                {{ render_field(form.techniques) }}
+                {{ render_field(form.creation_moves) }}
+                {{ render_field(form.creation_techniques) }}
             </div>
         </div>
     <div class="form-group">
