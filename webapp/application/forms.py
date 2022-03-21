@@ -180,8 +180,9 @@ class CharacterEditForm(Form):
         for i, e in enumerate(self.techniques.entries):
             e.label = 'Learned' if i == 0 else 'Mastered'
             e.choices = [(t.id, t.name + ': ' + t.description) for t in t_list]
-        if not character.training:
-            self.techniques.label =  str(self.techniques.label) + ' (Select a training to see additional options)'
+        t_lbl = 'Select one learned and one mastered technique'
+        t_lbl_add = '(Select a training to see additional options)'
+        self.techniques.label = t_lbl if character.training else ' '.join([t_lbl, t_lbl_add])
 
     def set_defaults(self, character):
         self.stat.data = character.creation_stat_increase
