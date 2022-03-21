@@ -132,10 +132,8 @@ def edit_character(character_id):
     logger.debug('Call to edit_character')
     character = Character.get(character_id)
     form = CharacterEditForm(request.form)
-    form.set_choices(character) # technique choices always lagged by one submit 
-    if request.method == 'GET':
-        form.set_defaults(character)
-    elif request.method == 'POST' and form.validate():
+    form.set_choices(character)
+    if request.method == 'POST' and form.validate():
         for field, value in form.data.items():
             if value and any(value):
                 # all this junk should probably be methods of Character
@@ -183,10 +181,12 @@ def edit_character(character_id):
                     character.set(field, value)
         db.session.commit()
         logger.debug(f'Updated {character.id}')
+        form.set_choices(character) # repopulate choices based on submitted data
         flash('Character updated', 'success') 
         # return redirect(url_for('home')) # can eventually go to character sheet
     else:
         flash_errors(form)
+    form.set_defaults(character) # would overwrite posted data if placed above
     return render_template('character_edit.html', character = character, form = form) # would be nice if this snapped you back to tab you were on
 
 @app.route('/api/character/<character_id>', methods = ['GET'])
