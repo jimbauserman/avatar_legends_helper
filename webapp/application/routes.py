@@ -11,12 +11,11 @@ from is_safe_url import is_safe_url
 
 from . import app, db, login_manager
 from .db_model import *
+from .forms import RegistrationForm, LoginForm, CharacterCreateForm, CharacterEditForm, flash_errors
 
 FLASK_APP_HOST = os.environ['FLASK_APP_HOST']
 
 logger = logging.getLogger('routes')
-
-# need helper fns to validate request structure
 
 # configure login 
 @login_manager.user_loader
@@ -37,41 +36,38 @@ def home():
 
 @app.route('/register', methods = ['GET','POST'])
 def register():
-    # try https://flask.palletsprojects.com/en/2.0.x/patterns/wtforms/
     logger.debug('Request to register')
-    if request.method == 'POST':
-        player_name = request.form['name']
+    form = RegistrationForm(request.form)
+    if request.method == 'POST' and form.validate():
+        player_name = form.name.data 
         logger.debug(f'Call to create_player for {player_name}')
-        player_pass_raw = request.form['pass']
-        player_pass_raw2 = request.form['pass2']
-        if player_pass_raw != player_pass_raw2:
-            flash('Passwords do not match')
+        if Player.get_name(player_name):
+            flash('''Player name {name} already exists. <a href="{url}">Login here.</a>'''.format(name = player_name, url = url_for('login')), 'danger')
         else:
-            if Player.get_name(player_name):
-                flash('''Player name {name} already exists. <a href="{url}">Login here.</a>'''.format(name = player_name, url = url_for('login')))
-            else:
-                player = Player(player_name, player_pass_raw)
-                db.session.add(player)
-                db.session.commit()
-                logger.debug(f'Inserted {player.id}')
-                login_user(player)
-                return redirect(url_for('home'))
-    return render_template('register.html')
+            player = Player(player_name, form.password.data)
+            db.session.add(player)
+            db.session.commit()
+            logger.debug(f'Inserted {player.id}')
+            login_user(player)
+            return redirect(url_for('home'))
+    else:
+        flash_errors(form)
+    return render_template('register.html', form = form)
 
 @app.route('/login', methods = ['GET','POST'])
 def login():
     logger.debug('Request to login')
-    if request.method == 'POST':
-        logger.debug('Login for submitted')
-        player_name = request.form['name'] 
-        logger.debug(f'for {player_name}')
-        req_pw = md5(request.form['pass'].encode()).hexdigest()
+    form = LoginForm(request.form)
+    if request.method == 'POST' and form.validate():
+        player_name = form.name.data 
+        logger.debug('Login for {player_name} submitted')
+        req_pw = md5(form.password.data.encode()).hexdigest()
         player = Player.get_name(player_name)
         if not player:
-            flash('''No player with that name exists. <a href="{url}">Sign up here!</a>'''.format(url = url_for('register')))
+            flash('''No player with that name exists. <a href="{url}">Sign up here!</a>'''.format(url = url_for('register')), 'danger')
         else:
             if req_pw != player.password_hash:
-                flash('Incorrect player name or password.')
+                flash('Incorrect player name or password', 'danger')
                 logger.debug('Failed attempt')
             else:
                 logger.debug('Successful attempt')
@@ -81,8 +77,10 @@ def login():
                 if next and not is_safe_url(next, {FLASK_APP_HOST}):
                     return abort(400)
                 return redirect(next or url_for('home'))
+    else:
+        flash_errors(form)
 
-    return render_template('login.html')
+    return render_template('login.html', form = form)
 
 @app.route('/logout')
 @login_required
@@ -100,73 +98,58 @@ def create_character():
     ''' ZZ docstring '''
     logger.debug('Call to create_character')
     player = current_user
-    playbooks = Playbook.get_all()
-    if request.method == 'POST':
-        character_name = request.form['name']
+    form = CharacterCreateForm(request.form)
+    form.playbook_id.choices = [(p.id, p.name) for p in Playbook.get_all()]
+    if request.method == 'POST' and form.validate():
+        character_name = form.name.data
         character = Character.get_name(player.id, character_name)
         if character:
-            flash('You already have a character with that name')
+            flash('You already have a character with that name', 'danger')
         else:
-            character = Character(player, character_name)
-            character.playbook_id = request.form['playbook_id']
+            playbook_id = form.playbook_id.data
+            character = Character(player, character_name, playbook_id)
             db.session.add(character)
             for move in Move.starting_moves():
-                cm = CharacterMove(character, move)
+                cm = CharacterMove(character.id, move.id)
                 db.session.add(cm)
             for technique in Technique.starting_techniques():
-                ct = CharacterTechnique(character, technique)
+                ct = CharacterTechnique(character.id, technique.id)
                 db.session.add(ct)
             db.session.commit()
+            for s in statistics:
+                character.set(s.lower(), character.playbook.stats[s])
+            db.session.commit()
             logger.debug(f'{character.name} created')
-            return redirect(url_for('edit_character', step = 1, character_id = character.id))
-    return render_template('character_create.html', playbooks = playbooks)
+            return redirect(url_for('edit_character', character_id = character.id))
+    else:
+        flash_errors(form)
+    return render_template('character_create.html', form = form)
 
-@app.route('/character/<character_id>/edit/<int:step>', methods = ['GET','POST']) 
-@login_required
-def edit_character(character_id, step):
+@app.route('/character/<character_id>/edit', methods = ['GET','POST']) 
+@login_required # doesnt check if character actually belongs to logged in player
+def edit_character(character_id):
     ''' ZZ docstring '''
     logger.debug('Call to edit_character')
     character = Character.get(character_id)
-    data = {
-        'statistics': statistics, # all these should ref to db model class that has description
-        'trainings': trainings,
-        'backgrounds': backgrounds, 
-        'nations': nations,
-        'techniques': Technique.query.filter_by(technique_type = 'Advanced').all()
-    }
-    if request.method == 'POST':
-        for k, v in request.form.items():
-            if k == 'stat':
-                for s in statistics:
-                    default = character.playbook.stats[s]
-                    val = default + 1 if v == s else default
-                    character.set(s.lower(), val)
-            elif k in ['demeanors','history_questions','connections']: # JSON attributes
-                val = json.dumps(request.form.getlist(k))
-                character.set(k, val)
-            elif k == 'moves':
-                for move_id in request.form.getlist(k):
-                    move = Move.get(move_id)
-                    cm = CharacterMove(character, move)
-                    db.session.add(cm)
-            elif k == 'learned_technique':
-                technique = Technique.get(v)
-                ct = CharacterTechnique(character, technique, mastery = 'Learned')
-                db.session.add(ct)
-            elif k == 'mastered_technique':
-                technique = Technique.get(v)
-                ct = CharacterTechnique(character, technique, mastery = 'Mastered')
-                db.session.add(ct)
-            else:
-                character.set(k, v)
+    form = CharacterEditForm(request.form)
+    form.set_choices(character)
+    if request.method == 'POST' and form.validate():
+        for field, value in form.data.items():
+            if value and any(value):
+                # all this junk should probably be methods of Character
+                if field in ['creation_moves','creation_techniques']:
+                    character.set(field, value, session = db.session)
+                else:
+                    character.set(field, value)
         db.session.commit()
         logger.debug(f'Updated {character.id}')
-        step += 1
-        if step == 5:
-            return redirect(url_for('home')) # can eventually go to character sheet
-        else:
-            return redirect(url_for('edit_character', character_id = character.id, step = step)) 
-    return render_template('character_edit_{}.html'.format(step), character = character, data = data)
+        form.set_choices(character) # repopulate choices based on submitted data
+        flash('Character updated', 'success') 
+        # return redirect(url_for('home')) # can eventually go to character sheet
+    else:
+        flash_errors(form)
+    form.set_defaults(character) # would overwrite posted data if placed above
+    return render_template('character_edit.html', character = character, form = form) # would be nice if this snapped you back to tab you were on
 
 @app.route('/api/character/<character_id>', methods = ['GET'])
 def get_character(character_id):

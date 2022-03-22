@@ -1,11 +1,48 @@
 {% extends 'base.html' %}
+{% from '_formhelpers.html' import render_field %}
 
-<h1>{% block title %} {% endblock %}</h1>
+<h1>{% block title %} Edit {{ character.name }} {% endblock %}</h1>
 {% block content %}
-    <form method = 'POST' name="edit" id="create-character">
-    {% block form_fields %} {% endblock %}
+    <form method = 'POST'>
+        <div id="tabs">
+            <ul>
+              <li id="stats-tab-button"><a href="#stats_tab">Statistics & Training</a></li>
+              <li id="background-tab-button"><a href="#background_tab">Background</a></li>
+              <li id="history-tab-button"><a href="#history_tab">History & Connections</a></li>
+              <li id="mt-tab-button"><a href="#mt_tab">Moves & Techniques</a></li>
+            </ul>
+            <div id="stats_tab">
+                {{ render_field(form.creation_stat_increase) }}
+                {{ render_field(form.training) }}
+                {{ render_field(form.fighting_style) }}
+            </div>
+            <div id="background_tab">
+                {{ render_field(form.background) }}
+                {{ render_field(form.hometown) }}
+                {{ render_field(form.hometown_region) }}
+                {{ render_field(form.appearance) }}
+                {{ render_field(form.demeanors) }}
+
+            </div>
+            <div id="history_tab">
+                {{ render_field(form.history_questions) }}
+                {{ render_field(form.connections) }}
+            </div>
+            <div id="mt_tab">
+                {{ render_field(form.creation_moves) }}
+                {{ render_field(form.creation_techniques) }}
+            </div>
+        </div>
     <div class="form-group">
-        <button type="submit" class="btn btn-primary">Continue</button>
+        <button type="submit" class="btn btn-primary">Save Character</button>
     </div>
     </form>
+{% endblock %}
+
+{% block scripts %} 
+<script type="text/javascript">   
+$( function() {
+    $( "#tabs" ).tabs();
+} ); 
+</script> 
 {% endblock %}

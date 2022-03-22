@@ -1,26 +1,19 @@
 {% extends 'base.html' %}
+{% from '_formhelpers.html' import render_field %}
 
 {% block content %}
     <h1>{% block title %} Register {% endblock %}</h1>
-    <h2>Register</h2>
-    <form method = 'POST' name="register" id="register-form">
+
+    <form method = 'POST'>
+
+      <dl>
+        {{ render_field(form.name) }}
+        {{ render_field(form.password) }}
+        {{ render_field(form.confirm) }}
+      </dl>
 
     <div class="form-group">
-        <label for="name">Player Name</label>
-        <input type="text" name="name"
-               placeholder="player name" class="form-control"
-               value="{{ request.form['name'] }}"></input>
-    </div>
-    <div class="form-group">
-        <label for="pass">Password</label>
-        <input type="text" name="pass" id="pass" placeholder="password" class="form-control" value="{{ request.form['pass'] }}"></input>
-    </div>
-    <div class="form-group">
-        <label for="pass2">Confirm Password</label>
-        <input type="text" name="pass2" id="pass2" placeholder="password" class="form-control" value="{{ request.form['pass2'] }}"></input>
-    </div>
-    <div class="form-group">
-        <button type="submit" class="btn btn-primary">Submit</button>
+        <button type="submit" class="btn btn-primary">Register</button>
     </div>
 
     </form>

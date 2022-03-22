@@ -1,23 +1,15 @@
-{% extends 'character_edit.html' %}
+{% extends 'base.html' %}
+{% from '_formhelpers.html' import render_field %}
 
-{% block title %} Create a New Character {% endblock %}
-
-{% block form_fields %} 
-
+<h1>{% block title %} {% endblock %}</h1>
+{% block content %}
+    <form method = 'POST'>
+      <dl>
+        {{ render_field(form.name) }}
+        {{ render_field(form.playbook_id) }}
+      </dl>
     <div class="form-group">
-        <label for="name">Character Name</label>
-        <input type="text" name="name" id="name"
-               placeholder="character name" class="form-control"
-               value="{{ request.form['name'] }}"></input>
+        <button type="submit" class="btn btn-primary">Create</button>
     </div>
-
-    <div class="form-group">
-        <label for="playbook_id">Playbook</label>
-        {% for playbook in playbooks %}
-        <label for="{{ playbook.id }}">{{ playbook.name }}<input type="radio" name="playbook_id" id="{{ playbook.id }}" 
-               title="{{ playbook.description }}" 
-               value="{{ playbook.id }}"></input></label>
-        {% endfor %}
-    </div>
-
+    </form>
 {% endblock %}

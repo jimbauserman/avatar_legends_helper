@@ -14,7 +14,7 @@ logger = logging.getLogger('db_model')
 
 # temp defs for enums. https://docs.sqlalchemy.org/en/14/core/type_basics.html#sqlalchemy.types.Enum
 backgrounds = ['Military','Monastic','Outlaw','Privileged','Urban','Wilderness']
-nations = ['Water','Air','Fire','Earth']
+nations = ['Water Tribes','Air Nomads','Fire Nation','Earth Kingdom']
 trainings = ['Waterbending','Airbending','Firebending','Earthbending','Weapons','Technology']
 move_types = ['Basic','Balance','Playbook','Advancement','Custom']
 statistics = ['Creativity','Focus','Harmony','Passion']
@@ -225,7 +225,7 @@ class Character(db.Model, DbMixIn):
         fighting_style                  VARCHAR(255),
         background                      VARCHAR(50),
         hometown                        VARCHAR(255),
-        hometown_nation                 ENUM('Water','Air','Fire','Earth'),
+        hometown_region                 ENUM('Water Tribes','Air Nomads','Fire Nation','Earth Kingdom'),
         demeanors                       JSON,
         appearance                      VARCHAR(1024),
         history_questions               JSON,
@@ -257,7 +257,7 @@ class Character(db.Model, DbMixIn):
     fighting_style = db.Column(db.String(255))
     background = db.Column(db.Enum(*backgrounds))
     hometown = db.Column(db.String(255))
-    hometown_nation = db.Column(db.Enum(*nations))
+    hometown_region = db.Column(db.Enum(*nations))
     demeanors = db.Column(db.JSON)
     appearance = db.Column(db.String(1024))
     history_questions = db.Column(db.JSON)
@@ -266,6 +266,9 @@ class Character(db.Model, DbMixIn):
     focus = db.Column(db.SmallInteger)
     harmony = db.Column(db.SmallInteger)
     passion = db.Column(db.SmallInteger)
+    creation_stat_increase = db.Column(db.Enum(*statistics))
+    creation_moves = db.Column(db.JSON)
+    creation_techniques = db.Column(db.JSON)
     fatigue = db.Column(db.SmallInteger, default = 0)
     balance = db.Column(db.SmallInteger, default = 0)
     balance_center = db.Column(db.SmallInteger, default = 0)
@@ -304,24 +307,85 @@ class Character(db.Model, DbMixIn):
     def filled_connections(self):
         return [q.replace('$BLANK$', a) for q, a in zip(self.playbook.connections, self.connections)]
 
-    def available_techniques(self):
-        return Technique.query.filter(
-                and_(Technique.technique_type == 'Advanced', 
-                or_(Technique.playbook_id == self.playbook_id, Technique.req_training.in_(['Universal', self.training])),
-                not_(Technique.id.in_([t.id for t in self.techniques])))
-            ).all()
+    def available_techniques(self, include_known = False):
+        if include_known:
+            t = Technique.query.filter(
+                    and_(Technique.technique_type == 'Advanced', 
+                    or_(Technique.playbook_id == self.playbook_id, Technique.req_training.in_(['Universal', self.training])))
+                ).all()
+        else: 
+            t = Technique.query.filter(
+                    and_(Technique.technique_type == 'Advanced', 
+                    or_(Technique.playbook_id == self.playbook_id, Technique.req_training.in_(['Universal', self.training])),
+                    not_(Technique.id.in_([t.id for t in self.techniques])))
+                ).all()
+        return t
+
+    def _set_creation_stat(self, value):
+        prev = self.creation_stat_increase
+        if prev and prev != value:
+            self.set(prev.lower(), self.stats[prev] - 1)
+        self.creation_stat_increase = value
+        self.set(value.lower(), self.stats[value] + 1)
+
+    def _set_creation_moves(self, value, session):
+        if not session:
+            raise ValueError('Session must be passed to Character.set() to update moves and techniques')
+        prev = self.creation_moves
+        if prev:
+            new = [m for m in value if m not in prev]
+            removed = [m for m in prev if m not in value]
+        else:
+            new = value 
+            removed = []
+        for move_id in new:
+            cm = CharacterMove(self.id, move_id)
+            session.add(cm)
+        for move_id in removed:
+            cm = CharacterMove.get(self.id, move_id)
+            session.delete(cm)
+        self.creation_moves = value
+
+    def _set_creation_techniques(self, value, session):
+        if not session:
+            raise ValueError('Session must be passed to Character.set() to update moves and techniques')
+        l = value[0]
+        m = value[1]
+        dict_value = {'Learned': l, 'Mastered': m}
+        if self.creation_techniques:
+            prev_l = self.creation_techniques['Learned']
+            prev_m = self.creation_techniques['Mastered']
+            if l != prev_l:
+                del_ct = CharacterTechnique.get(self.id, prev_l)
+                session.delete(del_ct)
+            if m != prev_m:
+                del_ct = CharacterTechnique.get(self.id, prev_m)
+                session.delete(del_ct)   
+        self.creation_techniques = dict_value
+        ctl = CharacterTechnique(self.id, l, mastery = 'Learned')
+        ctm = CharacterTechnique(self.id, m, mastery = 'Mastered')
+        session.add(ctl)
+        session.add(ctm)
     
-    def set(self, attr, value):
-        self.__setattr__(attr, value)
+    def set(self, attr, value, session = None):
+        if attr == 'creation_stat_increase':
+            self._set_creation_stat(value)
+        elif attr == 'creation_moves':
+            self._set_creation_moves(value, session)
+        elif attr == 'creation_techniques':
+            self._set_creation_techniques(value, session)
+        else:
+            self.__setattr__(attr, value)
 
     def get_name(player_id, name):
         return Character.query.filter_by(name = name, player_id = player_id).first()
 
-    def __init__(self, player, name, **kwargs):
+    def __init__(self, player, name, playbook_id, **kwargs):
         super(Character, self).__init__(**kwargs)
         self.player_id = player.id 
         self.name = name
         self.id = md5((self.player_id + self.name).encode()).hexdigest()
+        self.playbook_id = playbook_id
 
 class Player(UserMixin, db.Model, DbMixIn):
     '''
@@ -369,10 +433,10 @@ class CharacterMove(db.Model):
     def get(character_id, move_id):
         return CharacterMove.query.filter_by(character_id = character_id, move_id = move_id).first()
 
-    def __init__(self, character, move, **kwargs):
+    def __init__(self, character_id, move_id, **kwargs):
         super(CharacterMove, self).__init__(**kwargs)
-        self.character_id = character.id 
-        self.move_id = move.id
+        self.character_id = character_id 
+        self.move_id = move_id
 
 class CharacterTechnique(db.Model):
     '''
@@ -395,12 +459,12 @@ class CharacterTechnique(db.Model):
     def get(character_id, technique_id):
         return CharacterTechnique.query.filter_by(character_id = character_id, technique_id = technique_id).first()
 
-    def __init__(self, character, technique, mastery = None, **kwargs):
+    def __init__(self, character_id, technique_id, mastery = None, **kwargs):
         super(CharacterTechnique, self).__init__(**kwargs)
-        self.character_id = character.id 
-        self.technique_id = technique.id
+        self.character_id = character_id 
+        self.technique_id = technique_id
         if not mastery:
-            self.mastery = 'Basic' if technique.technique_type == 'Basic' else 'Learned'
+            self.mastery = 'Basic' if Technique.get(technique_id).technique_type == 'Basic' else 'Learned'
         else:
             self.mastery = mastery
 

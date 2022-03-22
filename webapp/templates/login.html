@@ -1,21 +1,15 @@
 {% extends 'base.html' %}
+{% from '_formhelpers.html' import render_field %}
 
 {% block content %}
     <h1>{% block title %} Login {% endblock %}</h1>
-    <h2>Login</h2>
-    <form method = 'POST' name="login" id="login-form">
+    <form method = 'POST'>
 
-    <div class="form-group">
-        <label for="name">Player Name</label>
-        <input type="text" name="name"
-               placeholder="player name" class="form-control"
-               value="{{ request.form['name'] }}"></input>
-    </div>
+      <dl>
+        {{ render_field(form.name) }}
+        {{ render_field(form.password) }}
+      </dl>
 
-    <div class="form-group">
-        <label for="pass">Password</label>
-        <input type="text" name="pass" id="pass" placeholder="password" class="form-control" value="{{ request.form['pass'] }}"></input>
-    </div>
     <div class="form-group">
         <button type="submit" class="btn btn-primary">Submit</button>
     </div>
